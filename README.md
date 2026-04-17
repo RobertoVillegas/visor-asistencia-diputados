@@ -1,6 +1,30 @@
-# shadcn/ui monorepo template
+# Gaceta Attendance
 
-This is a TanStack Start monorepo template with shadcn/ui.
+Monorepo for the Cámara de Diputados attendance project.
+
+## Apps
+
+- `apps/web`: TanStack Start frontend
+- `apps/api`: Bun + Hono backend for crawling, parsing, auth, and analytics
+
+## Development
+
+Install workspace dependencies from the repo root:
+
+```bash
+bun install
+```
+
+Run the apps with Turbo:
+
+```bash
+bun run dev
+```
+
+Default local ports:
+
+- web: `http://localhost:3000`
+- api: `http://localhost:3001`
 
 ## Adding components
 
