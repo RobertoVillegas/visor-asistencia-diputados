@@ -8,59 +8,155 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root"
-import { Route as IndexRouteImport } from "./routes/index"
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as PeopleRouteImport } from './routes/people'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as LegislatorsLegislatorIdRouteImport } from './routes/legislators.$legislatorId'
+import { Route as AdminSessionsSessionIdRouteImport } from './routes/admin.sessions.$sessionId'
 
-const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+const PeopleRoute = PeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegislatorsLegislatorIdRoute = LegislatorsLegislatorIdRouteImport.update({
+  id: '/legislators/$legislatorId',
+  path: '/legislators/$legislatorId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSessionsSessionIdRoute = AdminSessionsSessionIdRouteImport.update({
+  id: '/sessions/$sessionId',
+  path: '/sessions/$sessionId',
+  getParentRoute: () => AdminRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/people': typeof PeopleRoute
+  '/legislators/$legislatorId': typeof LegislatorsLegislatorIdRoute
+  '/admin/sessions/$sessionId': typeof AdminSessionsSessionIdRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/people': typeof PeopleRoute
+  '/legislators/$legislatorId': typeof LegislatorsLegislatorIdRoute
+  '/admin/sessions/$sessionId': typeof AdminSessionsSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  "/": typeof IndexRoute
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/people': typeof PeopleRoute
+  '/legislators/$legislatorId': typeof LegislatorsLegislatorIdRoute
+  '/admin/sessions/$sessionId': typeof AdminSessionsSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: "/"
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/people'
+    | '/legislators/$legislatorId'
+    | '/admin/sessions/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: "/"
-  id: "__root__" | "/"
+  to:
+    | '/'
+    | '/admin'
+    | '/people'
+    | '/legislators/$legislatorId'
+    | '/admin/sessions/$sessionId'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/people'
+    | '/legislators/$legislatorId'
+    | '/admin/sessions/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  PeopleRoute: typeof PeopleRoute
+  LegislatorsLegislatorIdRoute: typeof LegislatorsLegislatorIdRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/"
-      path: "/"
-      fullPath: "/"
+    '/people': {
+      id: '/people'
+      path: '/people'
+      fullPath: '/people'
+      preLoaderRoute: typeof PeopleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/legislators/$legislatorId': {
+      id: '/legislators/$legislatorId'
+      path: '/legislators/$legislatorId'
+      fullPath: '/legislators/$legislatorId'
+      preLoaderRoute: typeof LegislatorsLegislatorIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/sessions/$sessionId': {
+      id: '/admin/sessions/$sessionId'
+      path: '/sessions/$sessionId'
+      fullPath: '/admin/sessions/$sessionId'
+      preLoaderRoute: typeof AdminSessionsSessionIdRouteImport
+      parentRoute: typeof AdminRoute
     }
   }
 }
 
+interface AdminRouteChildren {
+  AdminSessionsSessionIdRoute: typeof AdminSessionsSessionIdRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminSessionsSessionIdRoute: AdminSessionsSessionIdRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
+  PeopleRoute: PeopleRoute,
+  LegislatorsLegislatorIdRoute: LegislatorsLegislatorIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx"
-import type { createStart } from "@tanstack/react-start"
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
