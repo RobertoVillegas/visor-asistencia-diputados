@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import { FadeIn, StaggerItem, StaggerList, SwappableContent } from "../components/reveal";
-import { api } from "../lib/api";
-import type { PeopleDirectoryResponse } from "../lib/api";
+import { FadeIn, StaggerItem, StaggerList, SwappableContent } from "../../components/reveal";
+import { api } from "../../lib/api";
+import type { PeopleDirectoryResponse } from "../../lib/api";
 
-export const Route = createFileRoute("/people")({
+export const Route = createFileRoute("/people/")({
   component: PeoplePage,
 });
 

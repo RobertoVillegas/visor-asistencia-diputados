@@ -1,16 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
-import { api } from "../lib/api";
-import type { LegislatorAttendanceRow, LegislatorSummary, LegislatorTrend } from "../lib/api";
-import { FadeIn, StaggerItem, StaggerList, SwappableContent } from "../components/reveal";
+import { api } from "../../lib/api";
+import type { LegislatorAttendanceRow, LegislatorSummary, LegislatorTrend } from "../../lib/api";
+import { FadeIn, StaggerItem, StaggerList, SwappableContent } from "../../components/reveal";
 import {
   formatCompactDate,
   formatDate,
   formatInteger,
   formatSessionType,
   formatStatusLabel,
-} from "../lib/format";
+} from "../../lib/format";
 
 interface DetailSearch {
   legislature?: string;
