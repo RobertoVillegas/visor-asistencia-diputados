@@ -295,7 +295,7 @@ function PersonDetailPage() {
 
               <StaggerItem>
                 <section className="grid gap-6 lg:grid-cols-[0.95fr_1.15fr]">
-                  <section className="surface-soft min-w-0 overflow-hidden rounded-[2rem] border border-border/75 p-6">
+                  <section className="surface-soft min-w-0 rounded-[2rem] border border-border/75 p-6">
                     <h2 className="font-heading text-2xl text-foreground">Asistencia por sesión</h2>
                     <p className="mt-2 text-sm text-muted-foreground">
                       Cada cuadro representa una sesión en orden cronológico.
@@ -345,7 +345,7 @@ function PersonDetailPage() {
                     </p>
                   </section>
 
-                  <section className="min-w-0 overflow-hidden rounded-[2rem] border border-border/75 bg-card/80 p-6">
+                  <section className="min-w-0 rounded-[2rem] border border-border/75 bg-card/80 p-6">
                     <h2 className="font-heading text-2xl text-foreground">Historial</h2>
                     <p className="mt-2 text-sm text-muted-foreground">
                       Registro por sesión con el estatus normalizado del PDF oficial.
@@ -487,7 +487,7 @@ function SessionTrendCell({
         className="h-5 w-5 rounded-sm transition-transform group-hover:scale-110"
         style={getCellAppearance(status)}
       />
-      <span className="pointer-events-none absolute top-full left-1/2 z-10 mt-2 w-56 -translate-x-1/2 rounded-2xl border border-border bg-card px-3 py-2 text-left text-xs text-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+      <span className="pointer-events-none absolute top-full left-1/2 z-30 mt-2 w-56 -translate-x-1/2 rounded-2xl border border-border bg-card px-3 py-2 text-left text-xs text-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
         <span className="block font-semibold">{label}</span>
         <span className="mt-1 block text-muted-foreground">
           {formatSessionType(sessionType)} · {formatStatusLabel(status)}
