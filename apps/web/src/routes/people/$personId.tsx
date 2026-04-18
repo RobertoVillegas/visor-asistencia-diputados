@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { api } from "../../lib/api";
-import type { LegislatorAttendanceRow, LegislatorSummary, LegislatorTrend } from "../../lib/api";
 import { FadeIn, StaggerItem, StaggerList, SwappableContent } from "../../components/reveal";
 import {
   formatCompactDate,
@@ -28,61 +28,38 @@ export const Route = createFileRoute("/people/$personId")({
 function PersonDetailPage() {
   const { personId } = Route.useParams();
   const search = Route.useSearch();
-  const [summary, setSummary] = useState<LegislatorSummary | null>(null);
-  const [attendance, setAttendance] = useState<LegislatorAttendanceRow[]>([]);
-  const [trend, setTrend] = useState<LegislatorTrend | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  const summaryQuery = useQuery({
+    placeholderData: (previousData) => previousData,
+    queryFn: () => api.getPerson(personId, { legislature: search.legislature }),
+    queryKey: ["person-summary", personId, search.legislature],
+  });
 
-    async function loadPerson() {
-      setIsLoading(true);
-      setError(null);
+  const attendanceQuery = useQuery({
+    placeholderData: (previousData) => previousData,
+    queryFn: () => api.getPersonAttendance(personId, { legislature: search.legislature }),
+    queryKey: ["person-attendance", personId, search.legislature],
+  });
 
-      try {
-        const [nextSummary, nextAttendance, nextTrend] = await Promise.all([
-          api.getPerson(personId, {
-            legislature: search.legislature,
-          }),
-          api.getPersonAttendance(personId, {
-            legislature: search.legislature,
-          }),
-          api.getPersonTrend(personId, {
-            legislature: search.legislature,
-            periodId: search.periodId,
-          }),
-        ]);
+  const trendQuery = useQuery({
+    placeholderData: (previousData) => previousData,
+    queryFn: () =>
+      api.getPersonTrend(personId, {
+        legislature: search.legislature,
+        periodId: search.periodId,
+      }),
+    queryKey: ["person-trend", personId, search.legislature, search.periodId],
+  });
 
-        if (cancelled) {
-          return;
-        }
-
-        setSummary(nextSummary);
-        setAttendance(nextAttendance);
-        setTrend(nextTrend);
-      } catch (caughtError) {
-        if (!cancelled) {
-          setError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "No se pudo cargar la ficha de la persona.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void loadPerson();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [personId, search.legislature, search.periodId]);
+  const summary = summaryQuery.data ?? null;
+  const attendance = attendanceQuery.data ?? [];
+  const trend = trendQuery.data ?? null;
+  const isLoading = summaryQuery.isPending || attendanceQuery.isPending || trendQuery.isPending;
+  const error =
+    (summaryQuery.error as Error | null)?.message ??
+    (attendanceQuery.error as Error | null)?.message ??
+    (trendQuery.error as Error | null)?.message ??
+    null;
 
   const trendCells = useMemo(() => {
     const attendanceBySessionId = new Map(attendance.map((row) => [row.sessionId, row]));

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
@@ -27,6 +28,7 @@ type AdminPeriod = RemotePeriod & {
 };
 
 function AdminPage() {
+  const queryClient = useQueryClient();
   const { data: sessionData, isPending, refetch } = authClient.useSession();
   const [periods, setPeriods] = useState<AdminPeriod[]>([]);
   const [selectedPeriodPageUrl, setSelectedPeriodPageUrl] = useState("");
@@ -360,6 +362,11 @@ function AdminPage() {
         q: peopleSearch || undefined,
       });
       setPeopleDirectory(nextPeople);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["analytics-legislators"] }),
+        queryClient.invalidateQueries({ queryKey: ["people-directory"] }),
+        queryClient.invalidateQueries({ queryKey: ["person-summary", selectedPersonId] }),
+      ]);
     } catch (caughtError) {
       setStatus(
         caughtError instanceof Error ? caughtError.message : "No se pudo guardar el perfil.",

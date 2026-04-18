@@ -50,6 +50,7 @@ export function LegislatorsTable({
             <div className="min-w-0">
               <Link
                 className="font-semibold text-foreground underline-offset-4 hover:underline"
+                onClick={(event) => event.stopPropagation()}
                 params={{ personId: row.original.personId }}
                 search={{ legislature, periodId }}
                 to="/people/$personId"
@@ -162,25 +163,36 @@ export function LegislatorsTable({
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr
-                className="cursor-pointer border-t border-border/55 align-middle transition-colors hover:bg-background/65"
-                key={row.id}
-                onClick={() =>
-                  navigate({
-                    params: { personId: row.original.personId },
-                    search: { legislature, periodId },
-                    to: "/people/$personId",
-                  })
-                }
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td className="px-4 py-4" key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {table.getRowModel().rows.map((row) => {
+              const goToProfile = () =>
+                navigate({
+                  params: { personId: row.original.personId },
+                  search: { legislature, periodId },
+                  to: "/people/$personId",
+                });
+
+              return (
+                <tr
+                  className="cursor-pointer border-t border-border/55 align-middle transition-colors hover:bg-background/65 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground"
+                  key={row.id}
+                  onClick={goToProfile}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      goToProfile();
+                    }
+                  }}
+                  role="link"
+                  tabIndex={0}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td className="px-4 py-4" key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
