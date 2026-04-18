@@ -28,15 +28,44 @@ export const Route = createFileRoute("/people/$personId")({
 function PersonDetailPage() {
   const { personId } = Route.useParams();
   const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  const periodsQuery = useQuery({
+    queryFn: async () => {
+      const [remotePeriods, storedPeriods] = await Promise.all([
+        api.listPeriods(),
+        api.listStoredPeriods(),
+      ]);
+      const storedByUrl = new Map(storedPeriods.map((period) => [period.periodPageUrl, period]));
+      return remotePeriods.map((period) => {
+        const stored = storedByUrl.get(period.periodPageUrl);
+        return {
+          ...period,
+          isImported: Boolean(stored),
+          storedPeriodId: stored?.id,
+        };
+      });
+    },
+    queryKey: ["dashboard-periods"],
+    staleTime: 60_000,
+  });
+
+  const periods = periodsQuery.data ?? [];
+  const periodsByUrl = useMemo(
+    () => new Map(periods.map((period) => [period.periodPageUrl, period])),
+    [periods],
+  );
+  const selectedPeriod = search.periodId ? periodsByUrl.get(search.periodId) : undefined;
+  const selectedStoredPeriodId = selectedPeriod?.storedPeriodId;
 
   const summaryQuery = useQuery({
     placeholderData: (previousData) => previousData,
     queryFn: () =>
       api.getPerson(personId, {
         legislature: search.legislature,
-        periodId: search.periodId,
+        periodId: selectedStoredPeriodId,
       }),
-    queryKey: ["person-summary", personId, search.legislature, search.periodId],
+    queryKey: ["person-summary", personId, search.legislature, selectedStoredPeriodId],
   });
 
   const attendanceQuery = useQuery({
@@ -44,9 +73,9 @@ function PersonDetailPage() {
     queryFn: () =>
       api.getPersonAttendance(personId, {
         legislature: search.legislature,
-        periodId: search.periodId,
+        periodId: selectedStoredPeriodId,
       }),
-    queryKey: ["person-attendance", personId, search.legislature, search.periodId],
+    queryKey: ["person-attendance", personId, search.legislature, selectedStoredPeriodId],
   });
 
   const trendQuery = useQuery({
@@ -54,9 +83,9 @@ function PersonDetailPage() {
     queryFn: () =>
       api.getPersonTrend(personId, {
         legislature: search.legislature,
-        periodId: search.periodId,
+        periodId: selectedStoredPeriodId,
       }),
-    queryKey: ["person-trend", personId, search.legislature, search.periodId],
+    queryKey: ["person-trend", personId, search.legislature, selectedStoredPeriodId],
   });
 
   const summary = summaryQuery.data ?? null;
@@ -176,31 +205,68 @@ function PersonDetailPage() {
                         {summary.fullName}
                       </h1>
                       <p className="mt-4 text-sm text-muted-foreground">
-                        {summary.groupName ?? "Sin grupo"} · {summary.legislature}
+                        {summary.groupName ?? "Sin grupo"}
                       </p>
 
-                      {summary.relatedLegislatures.length > 1 ? (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {summary.relatedLegislatures.map((item) => (
-                            <Link
-                              className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold tracking-[0.16em] uppercase ${
-                                item.isCurrent
-                                  ? "border-border bg-foreground text-background"
-                                  : "border-border bg-background/75 text-foreground"
-                              }`}
-                              key={item.id}
-                              params={{ personId: summary.personId }}
-                              search={{
-                                legislature: item.legislature,
-                                periodId: item.isCurrent ? search.periodId : undefined,
-                              }}
-                              to="/people/$personId"
-                            >
-                              {item.legislature}
-                            </Link>
-                          ))}
-                        </div>
-                      ) : null}
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <label className="flex flex-col gap-1.5">
+                          <span className="eyebrow">Legislatura</span>
+                          <select
+                            className="h-11 rounded-2xl border border-border/80 bg-background/85 px-3 text-sm font-medium text-foreground outline-none"
+                            onChange={(event) => {
+                              const nextLegislature = event.target.value;
+                              void navigate({
+                                params: { personId: summary.personId },
+                                search: {
+                                  legislature: nextLegislature,
+                                  periodId:
+                                    nextLegislature === summary.legislature
+                                      ? search.periodId
+                                      : undefined,
+                                },
+                                to: "/people/$personId",
+                              });
+                            }}
+                            value={summary.legislature}
+                          >
+                            {summary.relatedLegislatures.map((item) => (
+                              <option key={item.id} value={item.legislature}>
+                                {item.legislature}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="flex flex-col gap-1.5">
+                          <span className="eyebrow">Año de ejercicio</span>
+                          <select
+                            className="h-11 rounded-2xl border border-border/80 bg-background/85 px-3 text-sm font-medium text-foreground outline-none"
+                            disabled={!periods.length}
+                            onChange={(event) => {
+                              const nextPeriodId = event.target.value || undefined;
+                              void navigate({
+                                params: { personId: summary.personId },
+                                search: {
+                                  legislature: summary.legislature,
+                                  periodId: nextPeriodId,
+                                },
+                                to: "/people/$personId",
+                              });
+                            }}
+                            value={search.periodId ?? ""}
+                          >
+                            <option value="">Toda la legislatura</option>
+                            {periods
+                              .filter((period) => period.legislature === summary.legislature)
+                              .map((period) => (
+                                <option key={period.periodPageUrl} value={period.periodPageUrl}>
+                                  {period.label}
+                                  {period.isImported ? "" : " · sin datos"}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                      </div>
 
                       {summary.bio ? (
                         <p className="mt-6 max-w-3xl text-sm leading-7 text-foreground/82">
@@ -285,12 +351,20 @@ function PersonDetailPage() {
                       )}
                     </div>
 
-                    <div className="mt-5 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                      <LegendDot color="bg-emerald-500" label="Asistencia" />
-                      <LegendDot color="bg-amber-400" label="Justificada" />
-                      <LegendDot color="bg-rose-500" label="Inasistencia" />
-                      <LegendDot color="bg-slate-300" label="Otro" />
+                    <div className="mt-5 grid grid-cols-2 gap-x-3 gap-y-2 text-xs sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+                      <LegendDot status="attendance" label="Asistencia" />
+                      <LegendDot status="cedula" label="Cédula" />
+                      <LegendDot status="official_commission" label="Comisión" />
+                      <LegendDot status="board_leave" label="Mesa Directiva" />
+                      <LegendDot status="justified_absence" label="Justificada" />
+                      <LegendDot status="absence" label="Inasistencia" />
+                      <LegendDot status="not_present_in_votes" label="Sin voto" />
                     </div>
+                    <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                      Los cuadros con corte diagonal indican presencia institucional (cédula,
+                      comisión oficial o mesa directiva) — cuentan como participación pero no son
+                      una asistencia ordinaria.
+                    </p>
                   </section>
 
                   <section className="rounded-[2rem] border border-border/75 bg-card/80 p-6">
@@ -376,28 +450,41 @@ function statusClassName(status: string) {
   return "bg-slate-200 text-slate-800";
 }
 
-function cellClassName(status: string) {
-  if (
-    status === "attendance" ||
-    status === "cedula" ||
-    status === "official_commission" ||
-    status === "board_leave"
-  ) {
-    return "bg-emerald-500";
-  }
-  if (status === "justified_absence") {
-    return "bg-amber-400";
-  }
-  if (status === "absence") {
-    return "bg-rose-500";
-  }
-  return "bg-slate-300";
+const ATTENDANCE_GREEN = "#10b981";
+const CEDULA_ACCENT = "#6ee7b7";
+const COMMISSION_ACCENT = "#3b82f6";
+const BOARD_LEAVE_ACCENT = "#a855f7";
+const JUSTIFIED_AMBER = "#fbbf24";
+const ABSENCE_ROSE = "#f43f5e";
+const OTHER_SLATE = "#cbd5e1";
+
+function diagonalGradient(base: string, accent: string) {
+  return `linear-gradient(135deg, ${base} 0%, ${base} 50%, ${accent} 50%, ${accent} 100%)`;
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function getCellAppearance(status: string): { background: string } {
+  switch (status) {
+    case "attendance":
+      return { background: ATTENDANCE_GREEN };
+    case "cedula":
+      return { background: diagonalGradient(ATTENDANCE_GREEN, CEDULA_ACCENT) };
+    case "official_commission":
+      return { background: diagonalGradient(ATTENDANCE_GREEN, COMMISSION_ACCENT) };
+    case "board_leave":
+      return { background: diagonalGradient(ATTENDANCE_GREEN, BOARD_LEAVE_ACCENT) };
+    case "justified_absence":
+      return { background: JUSTIFIED_AMBER };
+    case "absence":
+      return { background: ABSENCE_ROSE };
+    default:
+      return { background: OTHER_SLATE };
+  }
+}
+
+function LegendDot({ label, status }: { label: string; status: string }) {
   return (
     <span className="inline-flex items-center gap-2 text-muted-foreground">
-      <span className={`h-3 w-3 rounded-sm ${color}`} aria-hidden />
+      <span aria-hidden className="h-3 w-3 rounded-sm" style={getCellAppearance(status)} />
       <span>{label}</span>
     </span>
   );
@@ -419,7 +506,8 @@ function SessionTrendCell({
   const content = (
     <>
       <span
-        className={`h-5 w-5 rounded-sm transition-transform group-hover:scale-110 ${cellClassName(status)}`}
+        className="h-5 w-5 rounded-sm transition-transform group-hover:scale-110"
+        style={getCellAppearance(status)}
       />
       <span className="pointer-events-none absolute top-full left-1/2 z-10 mt-2 w-56 -translate-x-1/2 rounded-2xl border border-border bg-card px-3 py-2 text-left text-xs text-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
         <span className="block font-semibold">{label}</span>
