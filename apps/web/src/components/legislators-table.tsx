@@ -18,6 +18,24 @@ interface LegislatorsTableProps {
   periodId?: string;
 }
 
+function getOthersCount(row: LegislatorAnalyticsRow) {
+  return (
+    row.cedulaCount + row.officialCommissionCount + row.boardLeaveCount + row.notPresentInVotesCount
+  );
+}
+
+function getParticipationRatio(row: LegislatorAnalyticsRow) {
+  if (row.sessionsMentioned <= 0) {
+    return 0;
+  }
+  return (
+    (row.attendanceCount + row.cedulaCount + row.officialCommissionCount + row.boardLeaveCount) /
+    row.sessionsMentioned
+  );
+}
+
+const OTHERS_TOOLTIP = "Cédula + Comisión oficial + Mesa Directiva + Sin voto";
+
 export function LegislatorsTable({
   legislators,
   legislature,
@@ -100,14 +118,21 @@ export function LegislatorsTable({
         header: "Inasist.",
       },
       {
+        cell: ({ row }) => (
+          <span className="text-muted-foreground tabular-nums" title={OTHERS_TOOLTIP}>
+            {formatInteger(getOthersCount(row.original))}
+          </span>
+        ),
+        header: () => (
+          <span title={OTHERS_TOOLTIP} className="cursor-help">
+            Otros
+          </span>
+        ),
+        id: "otros",
+      },
+      {
         cell: ({ row }) => {
-          const participacionRatio =
-            row.original.sessionsMentioned > 0
-              ? (row.original.attendanceCount +
-                  row.original.cedulaCount +
-                  row.original.officialCommissionCount) /
-                row.original.sessionsMentioned
-              : 0;
+          const participacionRatio = getParticipationRatio(row.original);
           return (
             <div className="flex items-center gap-3">
               <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
@@ -140,6 +165,8 @@ export function LegislatorsTable({
     },
   });
 
+  const visibleRows = table.getRowModel().rows;
+
   return (
     <div className="overflow-hidden rounded-[1.8rem] border border-border/75 bg-card/60">
       {loading ? (
@@ -147,7 +174,8 @@ export function LegislatorsTable({
           Actualizando listado…
         </div>
       ) : null}
-      <div className="overflow-x-auto">
+
+      <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-muted/55 text-xs tracking-[0.22em] text-muted-foreground uppercase">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -163,7 +191,7 @@ export function LegislatorsTable({
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row) => {
+            {visibleRows.map((row) => {
               const goToProfile = () =>
                 navigate({
                   params: { personId: row.original.personId },
@@ -196,13 +224,32 @@ export function LegislatorsTable({
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between border-t border-border/70 px-4 py-4 text-xs text-muted-foreground">
+
+      <ul className="flex flex-col gap-3 p-3 md:hidden">
+        {visibleRows.length === 0 ? (
+          <li className="rounded-2xl border border-border/60 bg-background/60 p-4 text-sm text-muted-foreground">
+            Sin resultados para los filtros actuales.
+          </li>
+        ) : (
+          visibleRows.map((row) => (
+            <li key={row.id}>
+              <LegislatorCard
+                legislator={row.original}
+                legislature={legislature}
+                periodId={periodId}
+              />
+            </li>
+          ))
+        )}
+      </ul>
+
+      <div className="flex flex-col gap-3 border-t border-border/70 px-4 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <p>
           Página {pagination.pageIndex + 1} de {table.getPageCount() || 1}
         </p>
         <div className="flex gap-2">
           <button
-            className="rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40"
+            className="flex-1 rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40 sm:flex-none"
             disabled={!table.getCanPreviousPage()}
             onClick={() => table.previousPage()}
             type="button"
@@ -210,7 +257,7 @@ export function LegislatorsTable({
             Anterior
           </button>
           <button
-            className="rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40"
+            className="flex-1 rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40 sm:flex-none"
             disabled={!table.getCanNextPage()}
             onClick={() => table.nextPage()}
             type="button"
@@ -219,6 +266,103 @@ export function LegislatorsTable({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LegislatorCard({
+  legislator,
+  legislature,
+  periodId,
+}: {
+  legislator: LegislatorAnalyticsRow;
+  legislature?: string;
+  periodId?: string;
+}) {
+  const navigate = useNavigate();
+  const goToProfile = () =>
+    navigate({
+      params: { personId: legislator.personId },
+      search: { legislature, periodId },
+      to: "/people/$personId",
+    });
+
+  const participation = getParticipationRatio(legislator);
+  const others = getOthersCount(legislator);
+
+  return (
+    <button
+      className="flex w-full flex-col gap-3 rounded-2xl border border-border/70 bg-background/65 p-4 text-left transition-colors hover:bg-background/85 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground"
+      onClick={goToProfile}
+      type="button"
+    >
+      <div className="flex items-center gap-3">
+        {legislator.imageUrl ? (
+          <img alt="" className="h-12 w-12 rounded-2xl object-cover" src={legislator.imageUrl} />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+            {getInitials(legislator.fullName)}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold text-foreground">{legislator.fullName}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {legislator.groupCode ?? "Sin grupo"}
+          </p>
+        </div>
+      </div>
+
+      <dl className="grid grid-cols-5 gap-2 text-center">
+        <CardStat label="Ses." value={formatInteger(legislator.sessionsMentioned)} />
+        <CardStat label="Asist." tone="emerald" value={formatInteger(legislator.attendanceCount)} />
+        <CardStat
+          label="Justif."
+          tone="amber"
+          value={formatInteger(legislator.justifiedAbsenceCount)}
+        />
+        <CardStat label="Inasist." tone="rose" value={formatInteger(legislator.absenceCount)} />
+        <CardStat label="Otros" value={formatInteger(others)} />
+      </dl>
+
+      <div className="flex items-center gap-3">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-emerald-500"
+            style={{ width: `${participation * 100}%` }}
+          />
+        </div>
+        <span className="w-14 text-right text-sm font-semibold text-emerald-700">
+          {formatPercent(participation)}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function CardStat({
+  label,
+  tone = "default",
+  value,
+}: {
+  label: string;
+  tone?: "default" | "emerald" | "amber" | "rose";
+  value: string;
+}) {
+  const toneClass =
+    tone === "emerald"
+      ? "text-emerald-700"
+      : tone === "amber"
+        ? "text-amber-600"
+        : tone === "rose"
+          ? "text-rose-600"
+          : "text-foreground";
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+        {label}
+      </dt>
+      <dd className={`font-semibold tabular-nums ${toneClass}`}>{value}</dd>
     </div>
   );
 }

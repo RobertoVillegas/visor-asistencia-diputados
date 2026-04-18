@@ -357,7 +357,7 @@ function DashboardPage() {
             <div className="grid gap-8 xl:grid-cols-[1.35fr_0.95fr]">
               <div className="max-w-4xl">
                 <p className="eyebrow">Camara de Diputados · Mexico</p>
-                <h1 className="text-balance-pretty mt-4 max-w-3xl font-heading text-5xl leading-none text-foreground sm:text-7xl">
+                <h1 className="text-balance-pretty mt-4 max-w-3xl font-heading text-4xl leading-tight text-foreground sm:text-5xl sm:leading-none lg:text-7xl">
                   Asistencia legislativa con lectura publica y contexto.
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-7 text-foreground/78 sm:text-base">
@@ -830,7 +830,9 @@ function MetricCard({
     >
       <p className="eyebrow">{eyebrow}</p>
       <p className="mt-4 text-sm font-medium text-muted-foreground">{detail}</p>
-      <h2 className="mt-6 font-heading text-5xl leading-none text-foreground">{title}</h2>
+      <h2 className="mt-5 font-heading text-4xl leading-none text-foreground sm:mt-6 sm:text-5xl">
+        {title}
+      </h2>
       <p className="mt-3 text-base font-medium text-foreground/82">{subtitle}</p>
       <p className="mt-4 max-w-[34ch] text-sm leading-6 text-muted-foreground">{children}</p>
     </article>

@@ -172,7 +172,7 @@ function PersonDetailPage() {
 
                     <div>
                       <p className="eyebrow">Perfil legislativo</p>
-                      <h1 className="mt-4 font-heading text-4xl leading-none text-foreground sm:text-6xl">
+                      <h1 className="mt-4 font-heading text-3xl leading-tight text-foreground sm:text-5xl sm:leading-none lg:text-6xl">
                         {summary.fullName}
                       </h1>
                       <p className="mt-4 text-sm text-muted-foreground">
@@ -208,7 +208,7 @@ function PersonDetailPage() {
                         </p>
                       ) : null}
 
-                      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
                         <InfoStat
                           label="Sesiones"
                           value={formatInteger(summary.sessionsMentioned)}
@@ -227,7 +227,7 @@ function PersonDetailPage() {
                         />
                       </div>
 
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
                         <InfoStat label="Cédula" value={formatInteger(summary.cedulaCount)} />
                         <InfoStat
                           label="Comisión"
@@ -356,9 +356,9 @@ function PersonDetailPage() {
 
 function InfoStat({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-[1.35rem] border border-border/70 bg-background/75 p-4">
+    <article className="rounded-[1.35rem] border border-border/70 bg-background/75 p-3 sm:p-4">
       <p className="eyebrow">{label}</p>
-      <p className="mt-3 font-heading text-3xl text-foreground">{value}</p>
+      <p className="mt-2 font-heading text-2xl text-foreground sm:mt-3 sm:text-3xl">{value}</p>
     </article>
   );
 }

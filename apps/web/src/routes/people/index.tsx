@@ -48,7 +48,7 @@ function PeoplePage() {
             <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
               <div>
                 <p className="eyebrow">Directorio publico</p>
-                <h1 className="mt-4 max-w-3xl font-heading text-5xl leading-none text-foreground sm:text-6xl">
+                <h1 className="mt-4 max-w-3xl font-heading text-4xl leading-tight text-foreground sm:text-5xl sm:leading-none lg:text-6xl">
                   Diputadas y diputados
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
@@ -144,14 +144,14 @@ function PeoplePage() {
               ))}
             </StaggerList>
 
-            <section className="mt-2 flex items-center justify-between rounded-[1.8rem] border border-border/75 bg-background/80 px-4 py-4 text-sm">
+            <section className="mt-2 flex flex-col gap-3 rounded-[1.8rem] border border-border/75 bg-background/80 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
               <p className="text-muted-foreground">
                 Página {directory.page} · {directory.total} perfiles
                 {isFetching ? " · actualizando…" : ""}
               </p>
               <div className="flex gap-2">
                 <button
-                  className="rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40"
+                  className="flex-1 rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40 sm:flex-none"
                   disabled={directory.page <= 1}
                   onClick={() => setPage((current) => Math.max(1, current - 1))}
                   type="button"
@@ -159,7 +159,7 @@ function PeoplePage() {
                   Anterior
                 </button>
                 <button
-                  className="rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40"
+                  className="flex-1 rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40 sm:flex-none"
                   disabled={directory.page * directory.pageSize >= directory.total}
                   onClick={() => setPage((current) => current + 1)}
                   type="button"
