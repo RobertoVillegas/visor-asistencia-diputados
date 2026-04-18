@@ -175,6 +175,7 @@ app.get("/api/legislators", async (c) => {
     (c.req.query("sort") as
       | "name"
       | "attendance_ratio"
+      | "participation_ratio"
       | "attendance_count"
       | "absence_count"
       | "justified_absence_count"

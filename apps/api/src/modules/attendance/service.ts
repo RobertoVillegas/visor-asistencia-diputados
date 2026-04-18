@@ -41,6 +41,7 @@ const ATTENDANCE_PARSER_VERSION = "attendance-v2";
 type LegislatorSort =
   | "name"
   | "attendance_ratio"
+  | "participation_ratio"
   | "attendance_count"
   | "absence_count"
   | "justified_absence_count"
@@ -1459,8 +1460,12 @@ export async function listLegislators(
 
   const enriched = rows.map((row) => {
     const { personMetadata, ...publicRow } = row;
+    const participationCount =
+      row.attendanceCount + row.cedulaCount + row.officialCommissionCount + row.boardLeaveCount;
     const attendanceRatio =
       row.sessionsMentioned > 0 ? row.attendanceCount / row.sessionsMentioned : 0;
+    const participationRatio =
+      row.sessionsMentioned > 0 ? participationCount / row.sessionsMentioned : 0;
     const absenceRatio =
       row.sessionsMentioned > 0
         ? (row.absenceCount + row.justifiedAbsenceCount) / row.sessionsMentioned
@@ -1471,6 +1476,7 @@ export async function listLegislators(
       ...extractProfileMetadata(personMetadata),
       absenceRatio,
       attendanceRatio,
+      participationRatio,
     };
   });
 
@@ -1483,6 +1489,7 @@ export async function listLegislators(
     attendance_ratio: (item) => item.attendanceRatio,
     justified_absence_count: (item) => item.justifiedAbsenceCount,
     name: (item) => item.fullName,
+    participation_ratio: (item) => (item.sessionsMentioned > 0 ? item.participationRatio : null),
     sessions_mentioned: (item) => item.sessionsMentioned,
   };
 

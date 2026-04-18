@@ -22,8 +22,8 @@ import { usePeriodResolver } from "../lib/use-period-resolver";
 
 const LEGISLATOR_SORT_VALUES = [
   "name",
-  "attendance_ratio",
-  "attendance_ratio_asc",
+  "participation_ratio",
+  "participation_ratio_asc",
   "attendance_count",
   "absence_count",
   "justified_absence_count",
@@ -32,7 +32,7 @@ const LEGISLATOR_SORT_VALUES = [
 
 type LegislatorSortValue = (typeof LEGISLATOR_SORT_VALUES)[number];
 
-const DEFAULT_LEGISLATOR_SORT: LegislatorSortValue = "attendance_ratio";
+const DEFAULT_LEGISLATOR_SORT: LegislatorSortValue = "participation_ratio";
 
 function isLegislatorSort(value: unknown): value is LegislatorSortValue {
   return typeof value === "string" && LEGISLATOR_SORT_VALUES.includes(value as LegislatorSortValue);
@@ -52,8 +52,8 @@ const LEGISLATOR_SORT_OPTIONS: {
   value: LegislatorSortValue;
   label: string;
 }[] = [
-  { label: "Mejor porcentaje de asistencia", value: "attendance_ratio" },
-  { label: "Menor porcentaje de asistencia", value: "attendance_ratio_asc" },
+  { label: "Mayor porcentaje de participación", value: "participation_ratio" },
+  { label: "Menor porcentaje de participación", value: "participation_ratio_asc" },
   { label: "Más asistencias registradas", value: "attendance_count" },
   { label: "Más sesiones registradas", value: "sessions_mentioned" },
   { label: "Más inasistencias", value: "absence_count" },
@@ -232,8 +232,9 @@ function DashboardPage() {
     enabled: Boolean(dashboardScope),
     placeholderData: (previousData) => previousData,
     queryFn: () => {
-      const ascendingSorts: LegislatorSortValue[] = ["name", "attendance_ratio_asc"];
-      const sort = legislatorSort === "attendance_ratio_asc" ? "attendance_ratio" : legislatorSort;
+      const ascendingSorts: LegislatorSortValue[] = ["name", "participation_ratio_asc"];
+      const sort =
+        legislatorSort === "participation_ratio_asc" ? "participation_ratio" : legislatorSort;
 
       return api.listLegislators({
         ...dashboardScope!,

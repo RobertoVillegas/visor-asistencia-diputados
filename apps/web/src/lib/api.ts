@@ -370,6 +370,7 @@ type LegislatorQuery = Scope & {
   sort?:
     | "name"
     | "attendance_ratio"
+    | "participation_ratio"
     | "attendance_count"
     | "absence_count"
     | "justified_absence_count"
