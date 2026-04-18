@@ -11,11 +11,58 @@ import { useMemo, useState } from "react";
 import type { LegislatorAnalyticsRow } from "../lib/api";
 import { formatInteger, formatPercent } from "../lib/format";
 
+export type LegislatorTableSort =
+  | "name"
+  | "sessions_mentioned"
+  | "attendance_count"
+  | "justified_absence_count"
+  | "absence_count"
+  | "participation_ratio"
+  | "participation_ratio_asc";
+
 interface LegislatorsTableProps {
   legislators: LegislatorAnalyticsRow[];
   legislature?: string;
   loading?: boolean;
   periodId?: string;
+  sort?: LegislatorTableSort;
+  onSortChange?: (sort: LegislatorTableSort) => void;
+  searchActive?: boolean;
+}
+
+const COLUMN_SORTS: Record<string, { default: LegislatorTableSort; toggle?: LegislatorTableSort }> =
+  {
+    absenceCount: { default: "absence_count" },
+    attendanceCount: { default: "attendance_count" },
+    fullName: { default: "name" },
+    justifiedAbsenceCount: { default: "justified_absence_count" },
+    participacion: { default: "participation_ratio", toggle: "participation_ratio_asc" },
+    sessionsMentioned: { default: "sessions_mentioned" },
+  };
+
+function nextSortFor(columnId: string, current?: LegislatorTableSort): LegislatorTableSort | null {
+  const mapping = COLUMN_SORTS[columnId];
+  if (!mapping) {
+    return null;
+  }
+  if (mapping.toggle && (current === mapping.default || current === mapping.toggle)) {
+    return current === mapping.default ? mapping.toggle : mapping.default;
+  }
+  return mapping.default;
+}
+
+function sortIndicator(columnId: string, current?: LegislatorTableSort): string {
+  const mapping = COLUMN_SORTS[columnId];
+  if (!mapping || !current) {
+    return "";
+  }
+  if (current === mapping.default) {
+    return mapping.default === "name" ? " ▲" : " ▼";
+  }
+  if (mapping.toggle && current === mapping.toggle) {
+    return " ▲";
+  }
+  return "";
 }
 
 function getOthersCount(row: LegislatorAnalyticsRow) {
@@ -40,7 +87,10 @@ export function LegislatorsTable({
   legislators,
   legislature,
   loading = false,
+  onSortChange,
   periodId,
+  searchActive = false,
+  sort,
 }: LegislatorsTableProps) {
   const navigate = useNavigate();
   const [pagination, setPagination] = useState({
@@ -81,14 +131,14 @@ export function LegislatorsTable({
             </div>
           </div>
         ),
-        header: "Diputada o diputado",
+        header: () => `Diputada o diputado${sortIndicator("fullName", sort)}`,
       },
       {
         accessorKey: "sessionsMentioned",
         cell: ({ row }) => (
           <span className="tabular-nums">{formatInteger(row.original.sessionsMentioned)}</span>
         ),
-        header: "Sesiones",
+        header: () => `Sesiones${sortIndicator("sessionsMentioned", sort)}`,
       },
       {
         accessorKey: "attendanceCount",
@@ -97,7 +147,7 @@ export function LegislatorsTable({
             {formatInteger(row.original.attendanceCount)}
           </span>
         ),
-        header: "Asist.",
+        header: () => `Asist.${sortIndicator("attendanceCount", sort)}`,
       },
       {
         accessorKey: "justifiedAbsenceCount",
@@ -106,7 +156,7 @@ export function LegislatorsTable({
             {formatInteger(row.original.justifiedAbsenceCount)}
           </span>
         ),
-        header: "Justif.",
+        header: () => `Justif.${sortIndicator("justifiedAbsenceCount", sort)}`,
       },
       {
         accessorKey: "absenceCount",
@@ -115,7 +165,7 @@ export function LegislatorsTable({
             {formatInteger(row.original.absenceCount)}
           </span>
         ),
-        header: "Inasist.",
+        header: () => `Inasist.${sortIndicator("absenceCount", sort)}`,
       },
       {
         cell: ({ row }) => (
@@ -147,11 +197,11 @@ export function LegislatorsTable({
             </div>
           );
         },
-        header: "Participación",
+        header: () => `Participación${sortIndicator("participacion", sort)}`,
         id: "participacion",
       },
     ],
-    [legislature, periodId],
+    [legislature, periodId, sort],
   );
 
   const table = useReactTable({
@@ -180,55 +230,98 @@ export function LegislatorsTable({
           <thead className="bg-muted/55 text-xs tracking-[0.22em] text-muted-foreground uppercase">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th className="px-4 py-4 font-medium" key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const next = nextSortFor(header.column.id, sort);
+                  const isSortable = Boolean(next && onSortChange);
+                  return (
+                    <th
+                      aria-sort={
+                        COLUMN_SORTS[header.column.id]
+                          ? sort === COLUMN_SORTS[header.column.id]?.default
+                            ? "descending"
+                            : sort === COLUMN_SORTS[header.column.id]?.toggle
+                              ? "ascending"
+                              : "none"
+                          : undefined
+                      }
+                      className={`px-4 py-4 font-medium ${
+                        isSortable
+                          ? "cursor-pointer select-none transition-colors hover:text-foreground"
+                          : ""
+                      }`}
+                      key={header.id}
+                      onClick={isSortable && next ? () => onSortChange?.(next) : undefined}
+                      onKeyDown={
+                        isSortable && next
+                          ? (event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                onSortChange?.(next);
+                              }
+                            }
+                          : undefined
+                      }
+                      tabIndex={isSortable ? 0 : undefined}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  );
+                })}
               </tr>
             ))}
           </thead>
           <tbody>
-            {visibleRows.map((row) => {
-              const goToProfile = () =>
-                navigate({
-                  params: { personId: row.original.personId },
-                  search: { legislature, periodId },
-                  to: "/people/$personId",
-                });
-
-              return (
-                <tr
-                  className="cursor-pointer border-t border-border/55 align-middle transition-colors hover:bg-background/65 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground"
-                  key={row.id}
-                  onClick={goToProfile}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      goToProfile();
-                    }
-                  }}
-                  role="link"
-                  tabIndex={0}
+            {visibleRows.length === 0 ? (
+              <tr>
+                <td
+                  className="px-4 py-12 text-center text-sm text-muted-foreground"
+                  colSpan={columns.length}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <td className="px-4 py-4" key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
+                  <EmptyMessage searchActive={searchActive} />
+                </td>
+              </tr>
+            ) : (
+              visibleRows.map((row) => {
+                const goToProfile = () =>
+                  navigate({
+                    params: { personId: row.original.personId },
+                    search: { legislature, periodId },
+                    to: "/people/$personId",
+                  });
+
+                return (
+                  <tr
+                    className="cursor-pointer border-t border-border/55 align-middle transition-colors hover:bg-background/65 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground"
+                    key={row.id}
+                    onClick={goToProfile}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        goToProfile();
+                      }
+                    }}
+                    role="link"
+                    tabIndex={0}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <td className="px-4 py-4" key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
 
       <ul className="flex flex-col gap-3 p-3 md:hidden">
         {visibleRows.length === 0 ? (
-          <li className="rounded-2xl border border-border/60 bg-background/60 p-4 text-sm text-muted-foreground">
-            Sin resultados para los filtros actuales.
+          <li className="rounded-2xl border border-border/60 bg-background/60 p-6 text-center text-sm text-muted-foreground">
+            <EmptyMessage searchActive={searchActive} />
           </li>
         ) : (
           visibleRows.map((row) => (
@@ -364,6 +457,27 @@ function CardStat({
       </dt>
       <dd className={`font-semibold tabular-nums ${toneClass}`}>{value}</dd>
     </div>
+  );
+}
+
+function EmptyMessage({ searchActive }: { searchActive: boolean }) {
+  if (searchActive) {
+    return (
+      <div className="space-y-1">
+        <p className="font-medium text-foreground/80">
+          Sin coincidencias para los filtros actuales
+        </p>
+        <p className="text-xs leading-5">
+          Ajusta el texto de búsqueda o quita los grupos seleccionados para ver más resultados.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <p>
+      Aún no hay legisladores procesados para este periodo. Vuelve cuando se haya importado el
+      contenido oficial.
+    </p>
   );
 }
 

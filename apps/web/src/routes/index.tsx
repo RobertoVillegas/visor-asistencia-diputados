@@ -43,6 +43,7 @@ interface DashboardSearch {
   periodId?: string;
   legislatorSearch?: string;
   legislatorSort?: LegislatorSortValue;
+  legislatorGroups?: string;
   hiddenSeries?: string;
 }
 
@@ -68,6 +69,10 @@ export const Route = createFileRoute("/")({
       typeof search.hiddenSeries === "string" && search.hiddenSeries.length > 0
         ? search.hiddenSeries
         : undefined,
+    legislatorGroups:
+      typeof search.legislatorGroups === "string" && search.legislatorGroups.length > 0
+        ? search.legislatorGroups
+        : undefined,
     legislatorSearch:
       typeof search.legislatorSearch === "string" && search.legislatorSearch.length > 0
         ? search.legislatorSearch
@@ -87,6 +92,10 @@ function DashboardPage() {
   const hiddenTrendSeries = useMemo(
     () => new Set((search.hiddenSeries ?? "").split(",").filter(Boolean)),
     [search.hiddenSeries],
+  );
+  const selectedGroupCodes = useMemo(
+    () => new Set((search.legislatorGroups ?? "").split(",").filter(Boolean)),
+    [search.legislatorGroups],
   );
 
   const [legislatorSearchInput, setLegislatorSearchInput] = useState(urlLegislatorSearch);
@@ -119,6 +128,32 @@ function DashboardPage() {
         ...prev,
         legislatorSort: value === DEFAULT_LEGISLATOR_SORT ? undefined : value,
       }),
+    });
+  };
+
+  const toggleLegislatorGroup = (code: string) => {
+    void navigate({
+      replace: true,
+      search: (prev) => {
+        const current = new Set((prev.legislatorGroups ?? "").split(",").filter(Boolean));
+        if (current.has(code)) {
+          current.delete(code);
+        } else {
+          current.add(code);
+        }
+        const next = [...current].join(",");
+        return {
+          ...prev,
+          legislatorGroups: next.length > 0 ? next : undefined,
+        };
+      },
+    });
+  };
+
+  const clearLegislatorGroups = () => {
+    void navigate({
+      replace: true,
+      search: (prev) => ({ ...prev, legislatorGroups: undefined }),
     });
   };
 
@@ -250,7 +285,23 @@ function DashboardPage() {
   const parties = partiesQuery.data ?? [];
   const trends = trendsQuery.data ?? null;
   const quality = qualityQuery.data ?? null;
-  const legislators = legislatorsQuery.data ?? [];
+  const allLegislators = legislatorsQuery.data ?? [];
+  const availableGroups = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of allLegislators) {
+      const code = row.groupCode ?? "Sin grupo";
+      counts.set(code, (counts.get(code) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([code, count]) => ({ code, count }))
+      .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+  }, [allLegislators]);
+  const legislators = useMemo(() => {
+    if (selectedGroupCodes.size === 0) {
+      return allLegislators;
+    }
+    return allLegislators.filter((row) => selectedGroupCodes.has(row.groupCode ?? "Sin grupo"));
+  }, [allLegislators, selectedGroupCodes]);
   const isLoading = Boolean(dashboardScope) && (overviewQuery.isPending || qualityQuery.isPending);
   const isLegislatorsLoading = legislatorsQuery.isFetching;
   const error =
@@ -523,13 +574,13 @@ function DashboardPage() {
 
         <SwappableContent contentKey={contentStateKey}>
           {isPeriodsLoading ? (
-            <LoadingPanel label="Cargando periodos..." />
+            <DashboardSkeleton label="Cargando periodos..." />
           ) : !selectedRemotePeriod?.isImported ? (
             <section className="rounded-[2rem] border border-amber-300 bg-amber-50/90 p-6 text-sm text-amber-900">
               El periodo seleccionado aun no tiene informacion publica disponible en este tablero.
             </section>
           ) : isLoading || !overview || !quality ? (
-            <LoadingPanel label="Cargando dashboard..." />
+            <DashboardSkeleton label="Cargando dashboard..." />
           ) : (
             <StaggerList className="flex flex-col gap-6">
               <StaggerItem>
@@ -753,11 +804,51 @@ function DashboardPage() {
                   title="Legisladores"
                   variant="flat"
                 >
+                  {availableGroups.length > 1 ? (
+                    <div className="mb-4 flex flex-wrap items-center gap-2">
+                      <span className="eyebrow mr-1">Grupo</span>
+                      {availableGroups.map(({ code, count }) => {
+                        const isActive = selectedGroupCodes.has(code);
+                        return (
+                          <button
+                            aria-pressed={isActive}
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
+                              isActive
+                                ? "border-foreground/80 bg-foreground text-background"
+                                : "border-border/70 bg-background/70 text-muted-foreground hover:text-foreground"
+                            }`}
+                            key={code}
+                            onClick={() => toggleLegislatorGroup(code)}
+                            type="button"
+                          >
+                            <span>{code}</span>
+                            <span
+                              className={`tabular-nums ${isActive ? "text-background/80" : "text-muted-foreground/80"}`}
+                            >
+                              {formatInteger(count)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                      {selectedGroupCodes.size > 0 ? (
+                        <button
+                          className="ml-1 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                          onClick={clearLegislatorGroups}
+                          type="button"
+                        >
+                          Limpiar
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <LegislatorsTable
                     legislators={legislators}
                     legislature={selectedLegislature}
                     loading={isLegislatorsLoading}
+                    onSortChange={setLegislatorSort}
                     periodId={selectedPeriodId}
+                    searchActive={Boolean(urlLegislatorSearch || selectedGroupCodes.size > 0)}
+                    sort={legislatorSort}
                   />
                 </Panel>
               </StaggerItem>
@@ -943,17 +1034,74 @@ function MiniNote({ label, value, detail }: { label: string; value: string; deta
   );
 }
 
-function LoadingPanel({ label }: { label: string }) {
+function SkeletonBlock({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <section className="surface-soft rounded-[2rem] border border-border/75 p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="eyebrow">Preparando vista</p>
-          <p className="mt-2 text-sm text-muted-foreground">{label}</p>
+    <div className={`animate-pulse rounded-2xl bg-muted/65 ${className ?? ""}`} style={style} />
+  );
+}
+
+function DashboardSkeleton({ label }: { label: string }) {
+  return (
+    <div aria-busy="true" aria-live="polite" className="flex flex-col gap-6">
+      <span className="sr-only">{label}</span>
+
+      <section className="grid gap-4 lg:grid-cols-[1.35fr_0.95fr_0.95fr]">
+        {[0, 1, 2].map((index) => (
+          <article
+            className={`rounded-[2rem] border p-5 sm:p-6 ${
+              index === 0 ? "surface-panel border-border/75" : "surface-soft border-border/70"
+            }`}
+            key={index}
+          >
+            <SkeletonBlock className="h-3 w-24" />
+            <SkeletonBlock className="mt-5 h-4 w-40" />
+            <SkeletonBlock className="mt-6 h-12 w-32 sm:h-14" />
+            <SkeletonBlock className="mt-4 h-4 w-48" />
+            <div className="mt-4 space-y-2">
+              <SkeletonBlock className="h-3 w-full" />
+              <SkeletonBlock className="h-3 w-5/6" />
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.05fr_1.3fr]">
+        <div className="surface-panel rounded-[2rem] border border-border/80 p-5 sm:p-6">
+          <SkeletonBlock className="h-5 w-56" />
+          <SkeletonBlock className="mt-3 h-3 w-3/4" />
+          <div className="mt-6 flex h-72 items-end justify-between gap-3">
+            {[60, 80, 50, 70, 45, 65, 55].map((height, index) => (
+              <SkeletonBlock
+                className="w-full rounded-t-2xl rounded-b-none"
+                key={index}
+                style={{ height: `${height}%` }}
+              />
+            ))}
+          </div>
         </div>
-        <div className="h-10 w-10 animate-spin rounded-full border border-border/70 border-t-primary" />
+        <div className="surface-soft rounded-[2rem] border border-border/75 p-5 sm:p-6">
+          <SkeletonBlock className="h-5 w-48" />
+          <SkeletonBlock className="mt-3 h-3 w-2/3" />
+          <SkeletonBlock className="mt-6 h-72 w-full" />
+        </div>
+      </section>
+
+      <div className="rounded-[2rem] border border-border/70 bg-card/75 p-5 sm:p-6">
+        <SkeletonBlock className="h-5 w-44" />
+        <SkeletonBlock className="mt-3 h-3 w-1/2" />
+        <div className="mt-6 space-y-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div className="flex items-center gap-4" key={index}>
+              <SkeletonBlock className="h-11 w-11 rounded-2xl" />
+              <SkeletonBlock className="h-4 flex-1" />
+              <SkeletonBlock className="hidden h-4 w-20 sm:block" />
+              <SkeletonBlock className="hidden h-4 w-16 sm:block" />
+              <SkeletonBlock className="h-4 w-24" />
+            </div>
+          ))}
+        </div>
       </div>
-    </section>
+    </div>
   );
 }
 
