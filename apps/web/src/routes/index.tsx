@@ -25,17 +25,21 @@ interface DashboardSearch {
 
 const PARTY_COLORS = ["#6e342d", "#a0522d", "#b38b59", "#586b4f", "#345c69", "#7b4b94"];
 
+type LegislatorSortValue =
+  | "name"
+  | "attendance_ratio"
+  | "attendance_ratio_asc"
+  | "attendance_count"
+  | "absence_count"
+  | "justified_absence_count"
+  | "sessions_mentioned";
+
 const LEGISLATOR_SORT_OPTIONS: {
-  value:
-    | "name"
-    | "attendance_ratio"
-    | "attendance_count"
-    | "absence_count"
-    | "justified_absence_count"
-    | "sessions_mentioned";
+  value: LegislatorSortValue;
   label: string;
 }[] = [
   { label: "Mejor porcentaje de asistencia", value: "attendance_ratio" },
+  { label: "Menor porcentaje de asistencia", value: "attendance_ratio_asc" },
   { label: "Más asistencias registradas", value: "attendance_count" },
   { label: "Más sesiones registradas", value: "sessions_mentioned" },
   { label: "Más inasistencias", value: "absence_count" },
@@ -55,14 +59,7 @@ function DashboardPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [legislatorSearch, setLegislatorSearch] = useState("");
-  const [legislatorSort, setLegislatorSort] = useState<
-    | "name"
-    | "attendance_ratio"
-    | "attendance_count"
-    | "absence_count"
-    | "justified_absence_count"
-    | "sessions_mentioned"
-  >("attendance_ratio");
+  const [legislatorSort, setLegislatorSort] = useState<LegislatorSortValue>("attendance_ratio");
   const [hiddenTrendSeries, setHiddenTrendSeries] = useState<Set<string>>(new Set());
 
   const periodsQuery = useQuery({
@@ -176,13 +173,17 @@ function DashboardPage() {
   const legislatorsQuery = useQuery({
     enabled: Boolean(dashboardScope),
     placeholderData: (previousData) => previousData,
-    queryFn: () =>
-      api.listLegislators({
+    queryFn: () => {
+      const ascendingSorts: LegislatorSortValue[] = ["name", "attendance_ratio_asc"];
+      const sort = legislatorSort === "attendance_ratio_asc" ? "attendance_ratio" : legislatorSort;
+
+      return api.listLegislators({
         ...dashboardScope!,
-        order: legislatorSort === "name" ? "asc" : "desc",
+        order: ascendingSorts.includes(legislatorSort) ? "asc" : "desc",
         q: legislatorSearch || undefined,
-        sort: legislatorSort,
-      }),
+        sort,
+      });
+    },
     queryKey: ["analytics-legislators", dashboardScope, legislatorSearch, legislatorSort],
   });
 
