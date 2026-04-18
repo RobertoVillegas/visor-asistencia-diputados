@@ -16,7 +16,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 COPY . .
 RUN bun x turbo run build --filter=web
 
-FROM node:22-alpine AS runtime
+FROM oven/bun:1.3.1 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -25,4 +25,4 @@ COPY --from=build /app/apps/web/.output ./.output
 
 EXPOSE 3000
 
-CMD ["node", ".output/server/index.mjs"]
+CMD ["bun", ".output/server/index.mjs"]
