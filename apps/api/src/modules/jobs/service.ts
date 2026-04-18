@@ -376,6 +376,17 @@ function scheduleDailyJob() {
 }
 
 export function startBackgroundServices() {
+  if (!env.CRON_ENABLED) {
+    logger.info("Background jobs disabled via CRON_ENABLED=false");
+
+    return () => {
+      if (cronTimeout) {
+        clearTimeout(cronTimeout);
+        cronTimeout = null;
+      }
+    };
+  }
+
   if (!workerStarted) {
     workerStarted = true;
     setInterval(() => {
