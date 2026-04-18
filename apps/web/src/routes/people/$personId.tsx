@@ -11,6 +11,7 @@ import {
   formatSessionType,
   formatStatusLabel,
 } from "../../lib/format";
+import { usePeriodResolver } from "../../lib/use-period-resolver";
 
 interface DetailSearch {
   legislature?: string;
@@ -30,33 +31,10 @@ function PersonDetailPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
 
-  const periodsQuery = useQuery({
-    queryFn: async () => {
-      const [remotePeriods, storedPeriods] = await Promise.all([
-        api.listPeriods(),
-        api.listStoredPeriods(),
-      ]);
-      const storedByUrl = new Map(storedPeriods.map((period) => [period.periodPageUrl, period]));
-      return remotePeriods.map((period) => {
-        const stored = storedByUrl.get(period.periodPageUrl);
-        return {
-          ...period,
-          isImported: Boolean(stored),
-          storedPeriodId: stored?.id,
-        };
-      });
-    },
-    queryKey: ["dashboard-periods"],
-    staleTime: 60_000,
+  const { periods, selectedStoredPeriodId } = usePeriodResolver({
+    legislature: search.legislature,
+    periodPageUrl: search.periodId,
   });
-
-  const periods = periodsQuery.data ?? [];
-  const periodsByUrl = useMemo(
-    () => new Map(periods.map((period) => [period.periodPageUrl, period])),
-    [periods],
-  );
-  const selectedPeriod = search.periodId ? periodsByUrl.get(search.periodId) : undefined;
-  const selectedStoredPeriodId = selectedPeriod?.storedPeriodId;
 
   const summaryQuery = useQuery({
     placeholderData: (previousData) => previousData,

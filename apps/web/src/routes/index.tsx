@@ -17,22 +17,36 @@ import { LegislatorsTable } from "../components/legislators-table";
 import { FadeIn, StaggerItem, StaggerList, SwappableContent } from "../components/reveal";
 import { api } from "../lib/api";
 import { formatCompactDate, formatInteger, formatPercent } from "../lib/format";
+import { useDebouncedValue } from "../lib/use-debounced-value";
+import { usePeriodResolver } from "../lib/use-period-resolver";
+
+const LEGISLATOR_SORT_VALUES = [
+  "name",
+  "attendance_ratio",
+  "attendance_ratio_asc",
+  "attendance_count",
+  "absence_count",
+  "justified_absence_count",
+  "sessions_mentioned",
+] as const;
+
+type LegislatorSortValue = (typeof LEGISLATOR_SORT_VALUES)[number];
+
+const DEFAULT_LEGISLATOR_SORT: LegislatorSortValue = "attendance_ratio";
+
+function isLegislatorSort(value: unknown): value is LegislatorSortValue {
+  return typeof value === "string" && LEGISLATOR_SORT_VALUES.includes(value as LegislatorSortValue);
+}
 
 interface DashboardSearch {
   legislature?: string;
   periodId?: string;
+  legislatorSearch?: string;
+  legislatorSort?: LegislatorSortValue;
+  hiddenSeries?: string;
 }
 
 const PARTY_COLORS = ["#6e342d", "#a0522d", "#b38b59", "#586b4f", "#345c69", "#7b4b94"];
-
-type LegislatorSortValue =
-  | "name"
-  | "attendance_ratio"
-  | "attendance_ratio_asc"
-  | "attendance_count"
-  | "absence_count"
-  | "justified_absence_count"
-  | "sessions_mentioned";
 
 const LEGISLATOR_SORT_OPTIONS: {
   value: LegislatorSortValue;
@@ -50,6 +64,15 @@ const LEGISLATOR_SORT_OPTIONS: {
 export const Route = createFileRoute("/")({
   component: DashboardPage,
   validateSearch: (search): DashboardSearch => ({
+    hiddenSeries:
+      typeof search.hiddenSeries === "string" && search.hiddenSeries.length > 0
+        ? search.hiddenSeries
+        : undefined,
+    legislatorSearch:
+      typeof search.legislatorSearch === "string" && search.legislatorSearch.length > 0
+        ? search.legislatorSearch
+        : undefined,
+    legislatorSort: isLegislatorSort(search.legislatorSort) ? search.legislatorSort : undefined,
     legislature: typeof search.legislature === "string" ? search.legislature : undefined,
     periodId: typeof search.periodId === "string" ? search.periodId : undefined,
   }),
@@ -58,44 +81,81 @@ export const Route = createFileRoute("/")({
 function DashboardPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const [legislatorSearch, setLegislatorSearch] = useState("");
-  const [legislatorSort, setLegislatorSort] = useState<LegislatorSortValue>("attendance_ratio");
-  const [hiddenTrendSeries, setHiddenTrendSeries] = useState<Set<string>>(new Set());
 
-  const periodsQuery = useQuery({
-    queryFn: async () => {
-      const [remotePeriods, storedPeriods, latestResponse] = await Promise.all([
-        api.listPeriods(),
-        api.listStoredPeriods(),
-        api.getLatestPeriod(),
-      ]);
+  const legislatorSort = search.legislatorSort ?? DEFAULT_LEGISLATOR_SORT;
+  const urlLegislatorSearch = search.legislatorSearch ?? "";
+  const hiddenTrendSeries = useMemo(
+    () => new Set((search.hiddenSeries ?? "").split(",").filter(Boolean)),
+    [search.hiddenSeries],
+  );
 
-      const storedByUrl = new Map(storedPeriods.map((period) => [period.periodPageUrl, period]));
-      const periods = remotePeriods.map((period) => {
-        const stored = storedByUrl.get(period.periodPageUrl);
+  const [legislatorSearchInput, setLegislatorSearchInput] = useState(urlLegislatorSearch);
 
+  useEffect(() => {
+    setLegislatorSearchInput((current) =>
+      current === urlLegislatorSearch ? current : urlLegislatorSearch,
+    );
+  }, [urlLegislatorSearch]);
+
+  const debouncedLegislatorSearch = useDebouncedValue(legislatorSearchInput, 350);
+
+  useEffect(() => {
+    if (debouncedLegislatorSearch === urlLegislatorSearch) {
+      return;
+    }
+    void navigate({
+      replace: true,
+      search: (prev) => ({
+        ...prev,
+        legislatorSearch: debouncedLegislatorSearch || undefined,
+      }),
+    });
+  }, [debouncedLegislatorSearch, navigate, urlLegislatorSearch]);
+
+  const setLegislatorSort = (value: LegislatorSortValue) => {
+    void navigate({
+      replace: true,
+      search: (prev) => ({
+        ...prev,
+        legislatorSort: value === DEFAULT_LEGISLATOR_SORT ? undefined : value,
+      }),
+    });
+  };
+
+  const toggleTrendSeries = (key: string) => {
+    void navigate({
+      replace: true,
+      search: (prev) => {
+        const current = new Set((prev.hiddenSeries ?? "").split(",").filter(Boolean));
+        if (current.has(key)) {
+          current.delete(key);
+        } else {
+          current.add(key);
+        }
+        const next = [...current].join(",");
         return {
-          ...period,
-          discoveredAt: stored?.discoveredAt,
-          isImported: Boolean(stored),
-          storedPeriodId: stored?.id,
+          ...prev,
+          hiddenSeries: next.length > 0 ? next : undefined,
         };
-      });
+      },
+    });
+  };
 
-      return {
-        latestRemote: latestResponse.latest,
-        periods,
-      };
-    },
-    queryKey: ["dashboard-periods"],
+  const {
+    error: periodsError,
+    isLoading: isPeriodsLoading,
+    latestRemotePeriod,
+    periods,
+    selectedPeriod: explicitSelectedPeriod,
+    selectedStoredPeriodId: explicitSelectedStoredPeriodId,
+  } = usePeriodResolver({
+    legislature: search.legislature,
+    periodPageUrl: search.periodId,
   });
 
-  const periods = periodsQuery.data?.periods ?? [];
-  const latestRemote = periodsQuery.data?.latestRemote ?? null;
-
   const latestPeriod =
-    periods.find((period) => period.periodPageUrl === latestRemote?.periodPageUrl) ??
-    (latestRemote ? { ...latestRemote, isImported: false } : null) ??
+    periods.find((period) => period.periodPageUrl === latestRemotePeriod?.periodPageUrl) ??
+    latestRemotePeriod ??
     periods[0] ??
     null;
   const selectedLegislature = search.legislature ?? latestPeriod?.legislature;
@@ -106,10 +166,8 @@ function DashboardPage() {
       : undefined) ??
     visiblePeriods.find((period) => period.isImported) ??
     visiblePeriods[0];
-  const selectedRemotePeriod =
-    visiblePeriods.find((period) => period.periodPageUrl === search.periodId) ??
-    defaultVisiblePeriod;
-  const selectedPeriodId = selectedRemotePeriod?.storedPeriodId;
+  const selectedRemotePeriod = explicitSelectedPeriod ?? defaultVisiblePeriod;
+  const selectedPeriodId = explicitSelectedStoredPeriodId ?? defaultVisiblePeriod?.storedPeriodId;
   const dashboardScope = useMemo(
     () =>
       selectedLegislature && selectedPeriodId
@@ -180,11 +238,11 @@ function DashboardPage() {
       return api.listLegislators({
         ...dashboardScope!,
         order: ascendingSorts.includes(legislatorSort) ? "asc" : "desc",
-        q: legislatorSearch || undefined,
+        q: urlLegislatorSearch || undefined,
         sort,
       });
     },
-    queryKey: ["analytics-legislators", dashboardScope, legislatorSearch, legislatorSort],
+    queryKey: ["analytics-legislators", dashboardScope, urlLegislatorSearch, legislatorSort],
   });
 
   const overview = overviewQuery.data ?? null;
@@ -192,11 +250,10 @@ function DashboardPage() {
   const trends = trendsQuery.data ?? null;
   const quality = qualityQuery.data ?? null;
   const legislators = legislatorsQuery.data ?? [];
-  const isPeriodsLoading = periodsQuery.isPending;
   const isLoading = Boolean(dashboardScope) && (overviewQuery.isPending || qualityQuery.isPending);
   const isLegislatorsLoading = legislatorsQuery.isFetching;
   const error =
-    (periodsQuery.error as Error | null)?.message ??
+    periodsError?.message ??
     (overviewQuery.error as Error | null)?.message ??
     (partiesQuery.error as Error | null)?.message ??
     (trendsQuery.error as Error | null)?.message ??
@@ -226,24 +283,10 @@ function DashboardPage() {
     [trends],
   );
 
-  // Visible trend lines (excluding hidden ones)
   const trendLines = useMemo(
     () => allTrendLines.filter((series) => !hiddenTrendSeries.has(series.key)),
     [allTrendLines, hiddenTrendSeries],
   );
-
-  // Toggle series visibility
-  const toggleTrendSeries = (key: string) => {
-    setHiddenTrendSeries((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
 
   // Calcular el rango mínimo para la escala relativa
   // Usar percentil 10 para ignorar outliers (valores atípicos)
@@ -681,18 +724,20 @@ function DashboardPage() {
                         <span className="eyebrow">Buscar nombre</span>
                         <input
                           className="h-11 min-w-0 rounded-2xl border border-border/80 bg-background/80 px-4 text-sm text-foreground outline-none placeholder:text-muted-foreground sm:min-w-72"
-                          onChange={(event) => setLegislatorSearch(event.target.value)}
+                          onChange={(event) => setLegislatorSearchInput(event.target.value)}
                           placeholder="Ej. Ramirez, Batres, Monreal"
-                          value={legislatorSearch}
+                          value={legislatorSearchInput}
                         />
                       </label>
                       <label className="flex min-w-0 flex-col gap-2">
                         <span className="eyebrow">Ordenar por</span>
                         <select
                           className="h-11 min-w-0 rounded-2xl border border-border/80 bg-background/80 px-4 text-sm text-foreground sm:min-w-72"
-                          onChange={(event) =>
-                            setLegislatorSort(event.target.value as typeof legislatorSort)
-                          }
+                          onChange={(event) => {
+                            if (isLegislatorSort(event.target.value)) {
+                              setLegislatorSort(event.target.value);
+                            }
+                          }}
                           value={legislatorSort}
                         >
                           {LEGISLATOR_SORT_OPTIONS.map((option) => (
