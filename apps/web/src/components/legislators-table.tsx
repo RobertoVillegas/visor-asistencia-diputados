@@ -163,7 +163,7 @@ export function LegislatorsTable({
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <tr
-                className="border-t border-border/55 align-top transition-colors hover:bg-background/65"
+                className="border-t border-border/55 align-middle transition-colors hover:bg-background/65"
                 key={row.id}
               >
                 {row.getVisibleCells().map((cell) => (
