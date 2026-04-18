@@ -1,4 +1,12 @@
-const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+function getConfiguredApiBaseUrl() {
+  if (typeof process !== "undefined" && process.env.VITE_API_BASE_URL?.trim()) {
+    return process.env.VITE_API_BASE_URL.trim();
+  }
+
+  return import.meta.env.VITE_API_BASE_URL?.trim();
+}
+
+const configuredApiBaseUrl = getConfiguredApiBaseUrl();
 
 function resolveApiBaseUrl() {
   if (configuredApiBaseUrl) {
