@@ -11,8 +11,9 @@ COPY packages/ui/package.json packages/ui/package.json
 RUN bun install --frozen-lockfile --ignore-scripts
 
 FROM deps AS build
-ARG VITE_API_BASE_URL=http://localhost:3001
+ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+RUN test -n "$VITE_API_BASE_URL"
 COPY . .
 RUN bun x turbo run build --filter=web
 

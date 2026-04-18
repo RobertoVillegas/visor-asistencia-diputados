@@ -1,4 +1,18 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+
+function resolveApiBaseUrl() {
+  if (configuredApiBaseUrl) {
+    return configuredApiBaseUrl;
+  }
+
+  if (import.meta.env.DEV) {
+    return "http://localhost:3001";
+  }
+
+  throw new Error("VITE_API_BASE_URL is required in production builds");
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export interface StoredPeriod {
   id: string;
