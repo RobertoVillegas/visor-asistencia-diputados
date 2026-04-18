@@ -5,7 +5,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import type { LegislatorAnalyticsRow } from "../lib/api";
@@ -24,6 +24,7 @@ export function LegislatorsTable({
   loading = false,
   periodId,
 }: LegislatorsTableProps) {
+  const navigate = useNavigate();
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 15,
@@ -163,8 +164,15 @@ export function LegislatorsTable({
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <tr
-                className="border-t border-border/55 align-middle transition-colors hover:bg-background/65"
+                className="cursor-pointer border-t border-border/55 align-middle transition-colors hover:bg-background/65"
                 key={row.id}
+                onClick={() =>
+                  navigate({
+                    params: { personId: row.original.personId },
+                    search: { legislature, periodId },
+                    to: "/people/$personId",
+                  })
+                }
               >
                 {row.getVisibleCells().map((cell) => (
                   <td className="px-4 py-4" key={cell.id}>
