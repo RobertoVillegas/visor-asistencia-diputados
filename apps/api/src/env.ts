@@ -1,5 +1,23 @@
 import { z } from "zod";
 
+const booleanFromEnv = z.union([z.boolean(), z.string()]).transform((value) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off", ""].includes(normalized)) {
+    return false;
+  }
+
+  throw new Error(`Invalid boolean value: ${value}`);
+});
+
 const csvEmails = z
   .string()
   .default("roberto@athas.mx")
@@ -15,7 +33,7 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
   CORS_ORIGIN: z.string().url().default("http://localhost:3000"),
-  CRON_ENABLED: z.coerce.boolean().default(true),
+  CRON_ENABLED: booleanFromEnv.default(true),
   CRON_HOUR: z.coerce.number().int().min(0).max(23).default(3),
   CRON_TARGET_LEGISLATURE: z
     .string()
