@@ -252,7 +252,7 @@ function PersonDetailPage() {
                         </p>
                       ) : null}
 
-                      <div className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+                      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <InfoStat
                           label="Sesiones"
                           value={formatInteger(summary.sessionsMentioned)}
@@ -271,7 +271,7 @@ function PersonDetailPage() {
                         />
                       </div>
 
-                      <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <InfoStat label="Cédula" value={formatInteger(summary.cedulaCount)} />
                         <InfoStat
                           label="Comisión"
@@ -295,7 +295,7 @@ function PersonDetailPage() {
 
               <StaggerItem>
                 <section className="grid gap-6 lg:grid-cols-[0.95fr_1.15fr]">
-                  <section className="surface-soft rounded-[2rem] border border-border/75 p-6">
+                  <section className="surface-soft min-w-0 overflow-hidden rounded-[2rem] border border-border/75 p-6">
                     <h2 className="font-heading text-2xl text-foreground">Asistencia por sesión</h2>
                     <p className="mt-2 text-sm text-muted-foreground">
                       Cada cuadro representa una sesión en orden cronológico.
@@ -345,7 +345,7 @@ function PersonDetailPage() {
                     </p>
                   </section>
 
-                  <section className="rounded-[2rem] border border-border/75 bg-card/80 p-6">
+                  <section className="min-w-0 overflow-hidden rounded-[2rem] border border-border/75 bg-card/80 p-6">
                     <h2 className="font-heading text-2xl text-foreground">Historial</h2>
                     <p className="mt-2 text-sm text-muted-foreground">
                       Registro por sesión con el estatus normalizado del PDF oficial.
@@ -380,7 +380,7 @@ function PersonDetailPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                <p className="font-medium">{row.title}</p>
+                                <p className="break-words font-medium">{row.title}</p>
                                 <a
                                   className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                                   href={row.sessionPageUrl}
