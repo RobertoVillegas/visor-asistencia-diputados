@@ -177,7 +177,7 @@ function PersonDetailPage() {
                       )}
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <p className="eyebrow">Perfil legislativo</p>
                       <h1 className="mt-4 font-heading text-3xl leading-tight text-foreground sm:text-5xl sm:leading-none lg:text-6xl">
                         {summary.fullName}
@@ -187,10 +187,10 @@ function PersonDetailPage() {
                       </p>
 
                       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <label className="flex flex-col gap-1.5">
+                        <label className="flex min-w-0 flex-col gap-1.5">
                           <span className="eyebrow">Legislatura</span>
                           <select
-                            className="h-11 rounded-2xl border border-border/80 bg-background/85 px-3 text-sm font-medium text-foreground outline-none"
+                            className="h-11 w-full min-w-0 rounded-2xl border border-border/80 bg-background/85 px-3 text-sm font-medium text-foreground outline-none"
                             onChange={(event) => {
                               const nextLegislature = event.target.value;
                               void navigate({
@@ -215,10 +215,10 @@ function PersonDetailPage() {
                           </select>
                         </label>
 
-                        <label className="flex flex-col gap-1.5">
+                        <label className="flex min-w-0 flex-col gap-1.5">
                           <span className="eyebrow">Año de ejercicio</span>
                           <select
-                            className="h-11 rounded-2xl border border-border/80 bg-background/85 px-3 text-sm font-medium text-foreground outline-none"
+                            className="h-11 w-full min-w-0 rounded-2xl border border-border/80 bg-background/85 px-3 text-sm font-medium text-foreground outline-none"
                             disabled={!periods.length}
                             onChange={(event) => {
                               const nextPeriodId = event.target.value || undefined;
