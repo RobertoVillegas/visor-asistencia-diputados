@@ -16,6 +16,7 @@ import {
   sessions,
 } from "../../db/schema";
 import type { documentKindEnum } from "../../db/schema";
+import { logger } from "../../lib/logger";
 import {
   fetchAttendancePeriods,
   fetchSessionDetails,
@@ -832,6 +833,7 @@ export async function processPeriodPipeline(input: {
   let failedSessions = 0;
 
   for (const session of periodSessions) {
+    const sessionStartedAt = Date.now();
     const sessionResult: Record<string, unknown> = {
       sessionDate: session.sessionDate,
       sessionId: session.sessionId,
@@ -839,14 +841,39 @@ export async function processPeriodPipeline(input: {
       title: session.title,
     };
 
-    try {
+    const emitProgress = async (
+      stage:
+        | "session"
+        | "attendance_document_lookup"
+        | "attendance_snapshot"
+        | "attendance_parse"
+        | "absence_snapshot"
+        | "reconciliation"
+        | "session_completed"
+        | "session_failed",
+      extra?: Record<string, unknown>,
+    ) => {
       await input.onProgress?.({
         current: results.length + 1,
         sessionId: session.sessionId,
-        stage: "session",
+        stage,
         title: session.title,
         total: periodSessions.length,
+        ...extra,
       });
+    };
+
+    try {
+      logger.info(
+        {
+          periodId: targetPeriodId,
+          sessionId: session.sessionId,
+          sessionTitle: session.title,
+        },
+        "Processing session in attendance pipeline",
+      );
+      await emitProgress("session");
+      await emitProgress("attendance_document_lookup");
 
       const attendanceDocument = await getSessionDocument(session.sessionId, "attendance");
       const absenceDocument = await getSessionDocument(session.sessionId, "absence");
@@ -855,6 +882,10 @@ export async function processPeriodPipeline(input: {
       let hasParsedAttendance = false;
 
       if (attendanceDocument) {
+        await emitProgress("attendance_snapshot", {
+          attendanceDocumentId: attendanceDocument.document.id,
+          attendanceDocumentUrl: attendanceDocument.document.url,
+        });
         const attendanceSnapshot = await createDocumentSnapshotForRow(
           attendanceDocument.document.id,
           attendanceDocument.document.url,
@@ -876,6 +907,10 @@ export async function processPeriodPipeline(input: {
         hasParsedAttendance = Number(existingParsed?.count ?? 0) > 0;
 
         if (input.forceParseAll || attendanceSnapshotChanged || !hasParsedAttendance) {
+          await emitProgress("attendance_parse", {
+            attendanceDocumentId: attendanceDocument.document.id,
+            snapshotChanged: attendanceSnapshotChanged,
+          });
           const parsed = await parseAndPersistAttendanceDocument(session.sessionId);
           parsedSessions += 1;
           sessionResult.parse = {
@@ -898,6 +933,10 @@ export async function processPeriodPipeline(input: {
       }
 
       if (absenceDocument) {
+        await emitProgress("absence_snapshot", {
+          absenceDocumentId: absenceDocument.document.id,
+          absenceDocumentUrl: absenceDocument.document.url,
+        });
         const absenceSnapshot = await createDocumentSnapshotForRow(
           absenceDocument.document.id,
           absenceDocument.document.url,
@@ -912,6 +951,9 @@ export async function processPeriodPipeline(input: {
       }
 
       if (absenceDocument && hasParsedAttendance) {
+        await emitProgress("reconciliation", {
+          absenceDocumentId: absenceDocument.document.id,
+        });
         const reconciliation = await reconcileSessionAbsences(session.sessionId);
         reconciledSessions += 1;
         if (!reconciliation.matches) {
@@ -932,12 +974,41 @@ export async function processPeriodPipeline(input: {
         };
       }
 
+      const durationMs = Date.now() - sessionStartedAt;
+      await emitProgress("session_completed", {
+        durationMs,
+      });
+      logger.info(
+        {
+          durationMs,
+          periodId: targetPeriodId,
+          sessionId: session.sessionId,
+          sessionTitle: session.title,
+        },
+        "Completed session in attendance pipeline",
+      );
       results.push(sessionResult);
     } catch (error) {
       failedSessions += 1;
+      const message = error instanceof Error ? error.message : "Unknown pipeline error";
+      const durationMs = Date.now() - sessionStartedAt;
+      await emitProgress("session_failed", {
+        durationMs,
+        error: message,
+      });
+      logger.error(
+        {
+          durationMs,
+          error: message,
+          periodId: targetPeriodId,
+          sessionId: session.sessionId,
+          sessionTitle: session.title,
+        },
+        "Session processing failed in attendance pipeline",
+      );
       results.push({
         ...sessionResult,
-        error: error instanceof Error ? error.message : "Unknown pipeline error",
+        error: message,
       });
     }
   }
@@ -1594,6 +1665,7 @@ function comparePeopleRows<
 
 function legislatureRank(value: string) {
   const map: Record<string, number> = {
+    LIX: 59,
     LX: 60,
     LXI: 61,
     LXII: 62,

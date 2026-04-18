@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import type { DiscoveredSession, LegislativePeriod, SessionDocumentLink } from "./types";
 
 const BASE_URL = "https://gaceta.diputados.gob.mx";
+const FETCH_TIMEOUT_MS = 60_000;
 
 const monthMap = new Map<string, number>([
   ["enero", 0],
@@ -60,8 +61,27 @@ function decodeWith(bytes: Uint8Array, charset: string): string {
   }
 }
 
+async function fetchWithTimeout(url: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Timed out fetching HTML after ${FETCH_TIMEOUT_MS}ms: ${url}`, {
+        cause: error,
+      });
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function fetchHtml(url: string): Promise<string> {
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   const bytes = new Uint8Array(await response.arrayBuffer());
   const utf8Preview = new TextDecoder("utf-8").decode(bytes);
   const declared = getDeclaredCharset(response.headers.get("content-type"), utf8Preview);
@@ -132,6 +152,7 @@ function parseSpanishDate(title: string): Date | null {
 
 function legislatureRank(value: string): number {
   const map: Record<string, number> = {
+    LIX: 59,
     LX: 60,
     LXI: 61,
     LXII: 62,
@@ -180,7 +201,7 @@ export async function fetchAttendancePeriods(): Promise<LegislativePeriod[]> {
   for (const table of $("table").toArray()) {
     const text = normalizeText($(table).text());
     const legislatureMatch = text.match(
-      /durante la\s+(LXVI|LXV|LXIV|LXIII|LXII|LXI|LX)\s+Legislatura/i,
+      /durante la\s+(LXVI|LXV|LXIV|LXIII|LXII|LXI|LX|LIX)\s+Legislatura/i,
     );
     if (legislatureMatch) {
       currentLegislature = legislatureMatch[1].toUpperCase();

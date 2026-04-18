@@ -56,7 +56,10 @@ async function updateJobProgress(jobId: string, progress: Record<string, unknown
   await db
     .update(jobQueue)
     .set({
-      progress,
+      progress: {
+        ...progress,
+        observedAt: new Date().toISOString(),
+      },
       updatedAt: new Date(),
     })
     .where(eq(jobQueue.id, jobId));
