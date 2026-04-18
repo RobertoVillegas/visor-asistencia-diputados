@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 
 const config = defineConfig({
-  plugins: [nitro(), tailwindcss(), tanstackStart(), viteReact()],
+  plugins: [tanstackStart(), nitro(), tailwindcss(), viteReact()],
   resolve: {
     tsconfigPaths: true,
   },
