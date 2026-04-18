@@ -186,16 +186,24 @@ app.get("/api/legislators", async (c) => {
 });
 
 app.get("/api/legislators/:id", async (c) => {
+  const legislature = c.req.query("legislature");
+  const periodId = c.req.query("periodId");
+
   try {
-    return c.json(await getLegislatorById(c.req.param("id")));
+    return c.json(await getLegislatorById(c.req.param("id"), { legislature, periodId }));
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : "Unknown error" }, 404);
   }
 });
 
 app.get("/api/legislators/:id/attendance", async (c) => {
+  const legislature = c.req.query("legislature");
+  const periodId = c.req.query("periodId");
+
   try {
-    return c.json(await getLegislatorAttendanceHistory(c.req.param("id")));
+    return c.json(
+      await getLegislatorAttendanceHistory(c.req.param("id"), { legislature, periodId }),
+    );
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : "Unknown error" }, 404);
   }
@@ -219,9 +227,10 @@ app.get("/api/people", async (c) => {
 
 app.get("/api/people/:id", async (c) => {
   const legislature = c.req.query("legislature");
+  const periodId = c.req.query("periodId");
 
   try {
-    return c.json(await getPersonById(c.req.param("id"), legislature));
+    return c.json(await getPersonById(c.req.param("id"), { legislature, periodId }));
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : "Unknown error" }, 404);
   }
@@ -229,9 +238,10 @@ app.get("/api/people/:id", async (c) => {
 
 app.get("/api/people/:id/attendance", async (c) => {
   const legislature = c.req.query("legislature");
+  const periodId = c.req.query("periodId");
 
   try {
-    return c.json(await getPersonAttendanceHistory(c.req.param("id"), legislature));
+    return c.json(await getPersonAttendanceHistory(c.req.param("id"), { legislature, periodId }));
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : "Unknown error" }, 404);
   }

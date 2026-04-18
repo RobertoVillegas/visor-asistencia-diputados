@@ -31,14 +31,22 @@ function PersonDetailPage() {
 
   const summaryQuery = useQuery({
     placeholderData: (previousData) => previousData,
-    queryFn: () => api.getPerson(personId, { legislature: search.legislature }),
-    queryKey: ["person-summary", personId, search.legislature],
+    queryFn: () =>
+      api.getPerson(personId, {
+        legislature: search.legislature,
+        periodId: search.periodId,
+      }),
+    queryKey: ["person-summary", personId, search.legislature, search.periodId],
   });
 
   const attendanceQuery = useQuery({
     placeholderData: (previousData) => previousData,
-    queryFn: () => api.getPersonAttendance(personId, { legislature: search.legislature }),
-    queryKey: ["person-attendance", personId, search.legislature],
+    queryFn: () =>
+      api.getPersonAttendance(personId, {
+        legislature: search.legislature,
+        periodId: search.periodId,
+      }),
+    queryKey: ["person-attendance", personId, search.legislature, search.periodId],
   });
 
   const trendQuery = useQuery({
@@ -61,22 +69,57 @@ function PersonDetailPage() {
     (trendQuery.error as Error | null)?.message ??
     null;
 
-  const trendCells = useMemo(() => {
+  const trendGroups = useMemo(() => {
     const attendanceBySessionId = new Map(attendance.map((row) => [row.sessionId, row]));
+    const groupsByKey = new Map<
+      string,
+      {
+        monthKey: string;
+        monthLabel: string;
+        cells: Array<{
+          label: string;
+          sessionId: string;
+          sessionPageUrl: string | null;
+          sessionType: string;
+          status: string;
+          title: string;
+        }>;
+      }
+    >();
 
-    return (trend?.points ?? []).map((point) => {
+    for (const point of trend?.points ?? []) {
       const session = attendanceBySessionId.get(point.sessionId);
+      const date = point.sessionDate ? new Date(point.sessionDate) : null;
+      const monthKey =
+        date && !Number.isNaN(date.getTime())
+          ? `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`
+          : "sin-fecha";
+      const monthLabel =
+        date && !Number.isNaN(date.getTime())
+          ? new Intl.DateTimeFormat("es-MX", {
+              month: "long",
+              timeZone: "UTC",
+              year: "numeric",
+            }).format(date)
+          : "Sin fecha";
 
-      return {
-        date: point.sessionDate,
+      let group = groupsByKey.get(monthKey);
+      if (!group) {
+        group = { cells: [], monthKey, monthLabel };
+        groupsByKey.set(monthKey, group);
+      }
+
+      group.cells.push({
         label: formatCompactDate(point.sessionDate),
         sessionId: point.sessionId,
         sessionPageUrl: session?.sessionPageUrl ?? null,
         sessionType: session?.sessionType ?? point.sessionType,
         status: point.status,
         title: session?.title ?? point.title,
-      };
-    });
+      });
+    }
+
+    return Array.from(groupsByKey.values());
   }, [attendance, trend]);
 
   return (
@@ -214,21 +257,30 @@ function PersonDetailPage() {
                       Cada cuadro representa una sesión en orden cronológico.
                     </p>
 
-                    <div className="mt-6 flex flex-wrap gap-1.5">
-                      {trendCells.length === 0 ? (
+                    <div className="mt-6 flex flex-col gap-4">
+                      {trendGroups.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                           Sin sesiones registradas en este periodo.
                         </p>
                       ) : (
-                        trendCells.map((cell) => (
-                          <SessionTrendCell
-                            key={cell.sessionId}
-                            label={cell.label}
-                            sessionPageUrl={cell.sessionPageUrl}
-                            sessionType={cell.sessionType}
-                            status={cell.status}
-                            title={cell.title}
-                          />
+                        trendGroups.map((group) => (
+                          <div className="flex flex-col gap-2" key={group.monthKey}>
+                            <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                              {group.monthLabel}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {group.cells.map((cell) => (
+                                <SessionTrendCell
+                                  key={cell.sessionId}
+                                  label={cell.label}
+                                  sessionPageUrl={cell.sessionPageUrl}
+                                  sessionType={cell.sessionType}
+                                  status={cell.status}
+                                  title={cell.title}
+                                />
+                              ))}
+                            </div>
+                          </div>
                         ))
                       )}
                     </div>

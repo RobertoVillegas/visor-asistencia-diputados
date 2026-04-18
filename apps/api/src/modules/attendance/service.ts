@@ -1489,7 +1489,20 @@ export async function listLegislators(
   return sortItems(enriched, sortMap[sort], order);
 }
 
-export async function getLegislatorById(legislatorId: string) {
+export async function getLegislatorById(legislatorId: string, scope: AnalyticsScope = {}) {
+  const attendanceJoin = scope.periodId
+    ? and(
+        eq(attendanceRecords.legislatorId, legislators.id),
+        inArray(
+          attendanceRecords.sessionId,
+          db
+            .select({ id: sessions.id })
+            .from(sessions)
+            .where(eq(sessions.periodId, scope.periodId)),
+        ),
+      )
+    : eq(attendanceRecords.legislatorId, legislators.id);
+
   const [summary] = await db
     .select({
       absenceCount: sql<number>`sum(case when ${attendanceRecords.status} = 'absence' then 1 else 0 end)::int`,
@@ -1512,7 +1525,7 @@ export async function getLegislatorById(legislatorId: string) {
     .from(legislators)
     .leftJoin(parliamentaryGroups, eq(legislators.currentGroupId, parliamentaryGroups.id))
     .innerJoin(people, eq(legislators.personId, people.id))
-    .leftJoin(attendanceRecords, eq(attendanceRecords.legislatorId, legislators.id))
+    .leftJoin(attendanceRecords, attendanceJoin)
     .where(eq(legislators.id, legislatorId))
     .groupBy(
       legislators.id,
@@ -1762,16 +1775,16 @@ export async function updateLegislatorProfile(
   return updated;
 }
 
-export async function getPersonById(personId: string, legislature?: string) {
-  const legislatorId = await resolveLegislatorIdForPerson(personId, legislature);
+export async function getPersonById(personId: string, scope: AnalyticsScope = {}) {
+  const legislatorId = await resolveLegislatorIdForPerson(personId, scope.legislature);
 
-  return getLegislatorById(legislatorId);
+  return getLegislatorById(legislatorId, scope);
 }
 
-export async function getPersonAttendanceHistory(personId: string, legislature?: string) {
-  const legislatorId = await resolveLegislatorIdForPerson(personId, legislature);
+export async function getPersonAttendanceHistory(personId: string, scope: AnalyticsScope = {}) {
+  const legislatorId = await resolveLegislatorIdForPerson(personId, scope.legislature);
 
-  return getLegislatorAttendanceHistory(legislatorId);
+  return getLegislatorAttendanceHistory(legislatorId, scope);
 }
 
 export async function getPersonTrend(personId: string, scope: AnalyticsScope = {}) {
@@ -1780,7 +1793,15 @@ export async function getPersonTrend(personId: string, scope: AnalyticsScope = {
   return getLegislatorTrend(legislatorId, scope);
 }
 
-export async function getLegislatorAttendanceHistory(legislatorId: string) {
+export async function getLegislatorAttendanceHistory(
+  legislatorId: string,
+  scope: AnalyticsScope = {},
+) {
+  const whereClauses = [eq(attendanceRecords.legislatorId, legislatorId)];
+  if (scope.periodId) {
+    whereClauses.push(eq(sessions.periodId, scope.periodId));
+  }
+
   return db
     .select({
       attendanceRecordId: attendanceRecords.id,
@@ -1797,7 +1818,7 @@ export async function getLegislatorAttendanceHistory(legislatorId: string) {
     .from(attendanceRecords)
     .innerJoin(sessions, eq(attendanceRecords.sessionId, sessions.id))
     .leftJoin(parliamentaryGroups, eq(attendanceRecords.groupId, parliamentaryGroups.id))
-    .where(eq(attendanceRecords.legislatorId, legislatorId))
+    .where(and(...whereClauses))
     .orderBy(desc(sessions.sessionDate), desc(attendanceRecords.createdAt));
 }
 

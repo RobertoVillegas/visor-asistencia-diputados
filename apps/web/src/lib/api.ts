@@ -488,13 +488,15 @@ export const api = {
       undefined,
       scopeToParams(scope),
     ),
-  getPerson: (id: string, scope?: { legislature?: string }) =>
+  getPerson: (id: string, scope?: { legislature?: string; periodId?: string }) =>
     fetchJson<LegislatorSummary>(`/api/people/${id}`, undefined, {
       legislature: scope?.legislature,
+      periodId: scope?.periodId,
     }),
-  getPersonAttendance: (id: string, scope?: { legislature?: string }) =>
+  getPersonAttendance: (id: string, scope?: { legislature?: string; periodId?: string }) =>
     fetchJson<LegislatorAttendanceRow[]>(`/api/people/${id}/attendance`, undefined, {
       legislature: scope?.legislature,
+      periodId: scope?.periodId,
     }),
   getPersonTrend: (id: string, scope: Scope) =>
     fetchJson<LegislatorTrend>(
