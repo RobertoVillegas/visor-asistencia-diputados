@@ -6,6 +6,7 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json bun.lock turbo.json tsconfig.json ./
 COPY apps/web/package.json apps/web/package.json
+COPY apps/api/package.json apps/api/package.json
 COPY packages/ui/package.json packages/ui/package.json
 RUN bun install --frozen-lockfile --ignore-scripts
 
