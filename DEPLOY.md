@@ -32,6 +32,7 @@ Variables obligatorias:
 
 ```env
 PORT=3001
+TZ=America/Mexico_City
 DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME
 BETTER_AUTH_SECRET=una-clave-larga-y-segura-de-32+-chars
 BETTER_AUTH_URL=https://api.tudominio.com
@@ -63,12 +64,15 @@ Notas:
 - Si todavía no quieres jobs automáticos, usa `CRON_ENABLED=false`.
 - Ese valor ahora desactiva tanto el scheduler como el background worker.
 - Es la forma recomendada de mantener vivo el contenedor durante el primer deploy antes de correr migraciones.
+- `CRON_HOUR` se interpreta en la timezone del contenedor.
+- Recomendado en producción: `TZ=America/Mexico_City`.
 
 ### Web
 
 Variable necesaria en build:
 
 ```env
+TZ=America/Mexico_City
 VITE_API_BASE_URL=https://api.tudominio.com
 ```
 
@@ -270,6 +274,7 @@ Fix:
 
 ```env
 PORT=3001
+TZ=America/Mexico_City
 DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME
 BETTER_AUTH_SECRET=una-clave-larga-y-segura-de-32+-chars
 BETTER_AUTH_URL=https://api.tudominio.com
