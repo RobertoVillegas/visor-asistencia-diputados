@@ -261,7 +261,8 @@ function AdminPage() {
     (period) => period.legislature === selectedLegislature
   )
   const selectedPerson =
-    peopleDirectory?.items.find((item) => item.id === selectedPersonId) ?? null
+    peopleDirectory?.items.find((item) => item.legislatorId === selectedPersonId) ??
+    null
   const suspiciousSessions = sessionQuality.filter(
     (session) =>
       session.attendanceRecordCount < 400 ||
@@ -333,7 +334,7 @@ function AdminPage() {
 
         setPeopleDirectory(nextPeople)
         setSelectedPersonId(
-          (current) => current ?? nextPeople.items[0]?.id ?? null
+          (current) => current ?? nextPeople.items[0]?.legislatorId ?? null
         )
       } catch (caughtError) {
         if (!cancelled) {
@@ -935,9 +936,9 @@ function AdminPage() {
                   <div className="mt-4 max-h-[30rem] space-y-3 overflow-auto">
                     {peopleDirectory?.items.map((person) => (
                       <button
-                        className={`block w-full rounded-2xl border p-4 text-left ${person.id === selectedPersonId ? "border-foreground bg-card" : "border-border bg-background"}`}
+                        className={`block w-full rounded-2xl border p-4 text-left ${person.legislatorId === selectedPersonId ? "border-foreground bg-card" : "border-border bg-background"}`}
                         key={person.id}
-                        onClick={() => setSelectedPersonId(person.id)}
+                        onClick={() => setSelectedPersonId(person.legislatorId)}
                         type="button"
                       >
                         <p className="font-semibold text-foreground">

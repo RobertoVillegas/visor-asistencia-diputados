@@ -94,6 +94,7 @@ export type PartyTrendsResponse = {
 
 export type LegislatorAnalyticsRow = {
   id: string
+  personId: string
   fullName: string
   legislature: string
   groupCode: string | null
@@ -161,6 +162,7 @@ export type SessionQualityRow = {
 
 export type LegislatorSummary = {
   id: string
+  personId: string
   fullName: string
   legislature: string
   groupCode: string | null
@@ -175,6 +177,13 @@ export type LegislatorSummary = {
   officialCommissionCount: number
   boardLeaveCount: number
   notPresentInVotesCount: number
+  relatedLegislatures: Array<{
+    id: string
+    legislature: string
+    groupCode: string | null
+    groupName: string | null
+    isCurrent: boolean
+  }>
 }
 
 export type LegislatorAttendanceRow = {
@@ -322,6 +331,7 @@ export type PeopleDirectoryResponse = {
   total: number
   items: Array<{
     id: string
+    legislatorId: string
     fullName: string
     normalizedName: string
     legislature: string
@@ -460,11 +470,25 @@ export const api = {
     ),
   getLegislator: (id: string) =>
     fetchJson<LegislatorSummary>(`/api/legislators/${id}`),
+  getPerson: (id: string, scope?: { legislature?: string }) =>
+    fetchJson<LegislatorSummary>(`/api/people/${id}`, undefined, {
+      legislature: scope?.legislature,
+    }),
   getLegislatorAttendance: (id: string) =>
     fetchJson<LegislatorAttendanceRow[]>(`/api/legislators/${id}/attendance`),
+  getPersonAttendance: (id: string, scope?: { legislature?: string }) =>
+    fetchJson<LegislatorAttendanceRow[]>(`/api/people/${id}/attendance`, undefined, {
+      legislature: scope?.legislature,
+    }),
   getLegislatorTrend: (id: string, scope: Scope) =>
     fetchJson<LegislatorTrend>(
       `/api/analytics/trends/legislator/${id}`,
+      undefined,
+      scopeToParams(scope)
+    ),
+  getPersonTrend: (id: string, scope: Scope) =>
+    fetchJson<LegislatorTrend>(
+      `/api/analytics/trends/person/${id}`,
       undefined,
       scopeToParams(scope)
     ),

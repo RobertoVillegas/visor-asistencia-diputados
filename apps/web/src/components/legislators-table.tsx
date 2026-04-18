@@ -35,18 +35,31 @@ export function LegislatorsTable({
         accessorKey: "fullName",
         header: "Diputada o diputado",
         cell: ({ row }) => (
-          <div className="min-w-0">
-            <Link
-              className="font-semibold text-foreground underline-offset-4 hover:underline"
-              params={{ legislatorId: row.original.id }}
-              search={{ legislature, periodId }}
-              to="/legislators/$legislatorId"
-            >
-              {row.original.fullName}
-            </Link>
-            <p className="text-xs text-muted-foreground">
-              {row.original.groupCode ?? "Sin grupo"}
-            </p>
+          <div className="flex min-w-0 items-center gap-3">
+            {row.original.imageUrl ? (
+              <img
+                alt=""
+                className="h-11 w-11 rounded-2xl object-cover"
+                src={row.original.imageUrl}
+              />
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-muted text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                {getInitials(row.original.fullName)}
+              </div>
+            )}
+            <div className="min-w-0">
+              <Link
+                className="font-semibold text-foreground underline-offset-4 hover:underline"
+                params={{ personId: row.original.personId }}
+                search={{ legislature, periodId }}
+                to="/people/$personId"
+              >
+                {row.original.fullName}
+              </Link>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {row.original.groupCode ?? "Sin grupo"}
+              </p>
+            </div>
           </div>
         ),
       },
@@ -128,7 +141,7 @@ export function LegislatorsTable({
   })
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-border bg-card/70">
+    <div className="overflow-hidden rounded-[1.8rem] border border-border/75 bg-card/60">
       {loading ? (
         <div className="border-b border-border/70 px-4 py-3 text-xs text-muted-foreground">
           Actualizando listado…
@@ -136,11 +149,11 @@ export function LegislatorsTable({
       ) : null}
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-muted/70 text-xs tracking-[0.24em] text-muted-foreground uppercase">
+          <thead className="bg-muted/55 text-xs tracking-[0.22em] text-muted-foreground uppercase">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th className="px-4 py-3 font-medium" key={header.id}>
+                  <th className="px-4 py-4 font-medium" key={header.id}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -155,11 +168,11 @@ export function LegislatorsTable({
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <tr
-                className="border-t border-border/70 align-top transition-colors hover:bg-muted/40"
+                className="border-t border-border/55 align-top transition-colors hover:bg-background/65"
                 key={row.id}
               >
                 {row.getVisibleCells().map((cell) => (
-                  <td className="px-4 py-3" key={cell.id}>
+                  <td className="px-4 py-4" key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -168,13 +181,13 @@ export function LegislatorsTable({
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between border-t border-border/70 px-4 py-3 text-xs text-muted-foreground">
+      <div className="flex items-center justify-between border-t border-border/70 px-4 py-4 text-xs text-muted-foreground">
         <p>
           Página {pagination.pageIndex + 1} de {table.getPageCount() || 1}
         </p>
         <div className="flex gap-2">
           <button
-            className="rounded-full border border-border px-3 py-1 disabled:opacity-40"
+            className="rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40"
             disabled={!table.getCanPreviousPage()}
             onClick={() => table.previousPage()}
             type="button"
@@ -182,7 +195,7 @@ export function LegislatorsTable({
             Anterior
           </button>
           <button
-            className="rounded-full border border-border px-3 py-1 disabled:opacity-40"
+            className="rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40"
             disabled={!table.getCanNextPage()}
             onClick={() => table.nextPage()}
             type="button"
@@ -193,4 +206,13 @@ export function LegislatorsTable({
       </div>
     </div>
   )
+}
+
+function getInitials(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2)
+
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`
 }

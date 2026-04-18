@@ -4,6 +4,8 @@ import { useState } from "react"
 
 import appCss from "@workspace/ui/globals.css?url"
 
+import { PageMotion } from "../components/reveal"
+
 export const Route = createRootRoute({
   head: () => ({
     meta: [
@@ -42,14 +44,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   )
 
   return (
-    <html lang="en">
+    <html lang="es-MX">
       <head>
         <HeadContent />
       </head>
       <body className="min-h-svh bg-background text-foreground antialiased">
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <PageMotion>
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        </PageMotion>
         <Scripts />
       </body>
     </html>

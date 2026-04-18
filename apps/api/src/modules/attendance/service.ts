@@ -1,4 +1,15 @@
-import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm"
 
 import { db } from "../../db"
 import {
@@ -8,6 +19,7 @@ import {
   ingestAnomalies,
   legislativePeriods,
   legislators,
+  people,
   parliamentaryGroups,
   sessionReconciliations,
   sessionDocuments,
@@ -36,7 +48,7 @@ import {
 import { parseAbsencePages } from "./absence-parser"
 
 type DocumentKind = (typeof documentKindEnum.enumValues)[number]
-type SessionType = typeof sessions.$inferInsert["sessionType"]
+type SessionType = (typeof sessions.$inferInsert)["sessionType"]
 type AnalyticsScope = {
   legislature?: string
   periodId?: string
@@ -1173,10 +1185,18 @@ export async function parseAndPersistAttendanceDocument(sessionId: string) {
 
     for (const record of parsed.records) {
       const groupId = groupIdsByCode.get(record.groupCode) ?? null
+      const personId = await resolvePersonId(tx, {
+        fullName: record.rawName,
+        normalizedName: record.normalizedName,
+        metadata: {
+          latestSourceDocumentId: row.document.id,
+        },
+      })
 
       const [legislator] = await tx
         .insert(legislators)
         .values({
+          personId,
           legislature,
           fullName: record.rawName,
           normalizedName: record.normalizedName,
@@ -1189,6 +1209,7 @@ export async function parseAndPersistAttendanceDocument(sessionId: string) {
         .onConflictDoUpdate({
           target: [legislators.legislature, legislators.normalizedName],
           set: {
+            personId,
             fullName: record.rawName,
             currentGroupId: groupId,
             displayOrderHint: record.rowNumber,
@@ -1274,7 +1295,7 @@ function buildLegislatorWhereClause(scope: AnalyticsScope, search?: string) {
   const clauses = []
 
   if (search) {
-    clauses.push(ilike(legislators.fullName, `%${search}%`))
+    clauses.push(...buildNormalizedNameSearchClauses(legislators.normalizedName, search))
   }
 
   if (scope.legislature) {
@@ -1288,6 +1309,78 @@ function buildLegislatorWhereClause(scope: AnalyticsScope, search?: string) {
   if (clauses.length === 0) return undefined
   if (clauses.length === 1) return clauses[0]
   return and(...clauses)
+}
+
+async function resolvePersonId(
+  tx: Pick<typeof db, "select" | "insert">,
+  input: {
+    fullName: string
+    normalizedName: string
+    metadata?: Record<string, unknown>
+  }
+) {
+  const [existing] = await tx
+    .select({
+      id: people.id,
+    })
+    .from(people)
+    .where(eq(people.normalizedName, input.normalizedName))
+    .limit(1)
+
+  if (existing) {
+    return existing.id
+  }
+
+  const [created] = await tx
+    .insert(people)
+    .values({
+      fullName: input.fullName,
+      normalizedName: input.normalizedName,
+      metadata: input.metadata ?? null,
+    })
+    .onConflictDoNothing({ target: people.normalizedName })
+    .returning({
+      id: people.id,
+    })
+
+  if (created) {
+    return created.id
+  }
+
+  const [conflicted] = await tx
+    .select({
+      id: people.id,
+    })
+    .from(people)
+    .where(eq(people.normalizedName, input.normalizedName))
+    .limit(1)
+
+  if (!conflicted) {
+    throw new Error(`Failed to resolve person for ${input.fullName}.`)
+  }
+
+  return conflicted.id
+}
+
+function buildNormalizedNameSearchClauses(
+  column: typeof legislators.normalizedName | typeof people.normalizedName,
+  search: string
+) {
+  const normalizedSearch = normalizeName(search)
+  const tokens = normalizedSearch.split(/\s+/).filter(Boolean)
+
+  if (tokens.length === 0) return []
+
+  return tokens.map((token) => ilike(column, `%${token}%`))
+}
+
+function extractProfileMetadata(metadata: unknown) {
+  const record = metadata as Record<string, unknown> | null
+
+  return {
+    imageUrl: (record?.imageUrl as string | null) ?? null,
+    bio: (record?.bio as string | null) ?? null,
+  }
 }
 
 function sortItems<T>(
@@ -1323,11 +1416,12 @@ export async function listLegislators(
   const rows = await db
     .select({
       id: legislators.id,
+      personId: legislators.personId,
       fullName: legislators.fullName,
       legislature: legislators.legislature,
       groupCode: parliamentaryGroups.code,
       groupName: parliamentaryGroups.name,
-      metadata: legislators.metadata,
+      personMetadata: people.metadata,
       sessionsMentioned: sql<number>`count(${attendanceRecords.id})::int`,
       attendanceCount: sql<number>`sum(case when ${attendanceRecords.status} = 'attendance' then 1 else 0 end)::int`,
       cedulaCount: sql<number>`sum(case when ${attendanceRecords.status} = 'cedula' then 1 else 0 end)::int`,
@@ -1342,6 +1436,7 @@ export async function listLegislators(
       parliamentaryGroups,
       eq(legislators.currentGroupId, parliamentaryGroups.id)
     )
+    .innerJoin(people, eq(legislators.personId, people.id))
     .leftJoin(
       attendanceRecords,
       eq(attendanceRecords.legislatorId, legislators.id)
@@ -1350,13 +1445,16 @@ export async function listLegislators(
     .where(whereClause)
     .groupBy(
       legislators.id,
+      legislators.personId,
       legislators.fullName,
       legislators.legislature,
+      people.metadata,
       parliamentaryGroups.code,
       parliamentaryGroups.name
     )
 
   const enriched = rows.map((row) => {
+    const { personMetadata, ...publicRow } = row
     const attendanceRatio =
       row.sessionsMentioned > 0
         ? row.attendanceCount / row.sessionsMentioned
@@ -1367,15 +1465,8 @@ export async function listLegislators(
         : 0
 
     return {
-      ...row,
-      imageUrl:
-        ((row.metadata as Record<string, unknown> | null)?.imageUrl as
-          | string
-          | null) ?? null,
-      bio:
-        ((row.metadata as Record<string, unknown> | null)?.bio as
-          | string
-          | null) ?? null,
+      ...publicRow,
+      ...extractProfileMetadata(personMetadata),
       attendanceRatio,
       absenceRatio,
     }
@@ -1400,11 +1491,13 @@ export async function getLegislatorById(legislatorId: string) {
   const [summary] = await db
     .select({
       id: legislators.id,
+      personId: legislators.personId,
       fullName: legislators.fullName,
+      normalizedName: legislators.normalizedName,
       legislature: legislators.legislature,
       groupCode: parliamentaryGroups.code,
       groupName: parliamentaryGroups.name,
-      metadata: legislators.metadata,
+      personMetadata: people.metadata,
       sessionsMentioned: sql<number>`count(${attendanceRecords.id})::int`,
       attendanceCount: sql<number>`sum(case when ${attendanceRecords.status} = 'attendance' then 1 else 0 end)::int`,
       cedulaCount: sql<number>`sum(case when ${attendanceRecords.status} = 'cedula' then 1 else 0 end)::int`,
@@ -1419,6 +1512,7 @@ export async function getLegislatorById(legislatorId: string) {
       parliamentaryGroups,
       eq(legislators.currentGroupId, parliamentaryGroups.id)
     )
+    .innerJoin(people, eq(legislators.personId, people.id))
     .leftJoin(
       attendanceRecords,
       eq(attendanceRecords.legislatorId, legislators.id)
@@ -1426,8 +1520,11 @@ export async function getLegislatorById(legislatorId: string) {
     .where(eq(legislators.id, legislatorId))
     .groupBy(
       legislators.id,
+      legislators.personId,
       legislators.fullName,
+      legislators.normalizedName,
       legislators.legislature,
+      people.metadata,
       parliamentaryGroups.code,
       parliamentaryGroups.name
     )
@@ -1437,16 +1534,41 @@ export async function getLegislatorById(legislatorId: string) {
     throw new Error("Legislator not found.")
   }
 
+  const relatedRows = await db
+    .select({
+      id: legislators.id,
+      legislature: legislators.legislature,
+      groupCode: parliamentaryGroups.code,
+      groupName: parliamentaryGroups.name,
+    })
+    .from(legislators)
+    .leftJoin(
+      parliamentaryGroups,
+      eq(legislators.currentGroupId, parliamentaryGroups.id)
+    )
+    .where(eq(legislators.personId, summary.personId))
+
+  const sortedRelatedRows = [...relatedRows].sort(
+    (left, right) =>
+      legislatureRank(right.legislature) - legislatureRank(left.legislature)
+  )
+
+  const {
+    normalizedName: _normalizedName,
+    personMetadata,
+    ...publicSummary
+  } = summary
+
   return {
-    ...summary,
-    imageUrl:
-      ((summary.metadata as Record<string, unknown> | null)?.imageUrl as
-        | string
-        | null) ?? null,
-    bio:
-      ((summary.metadata as Record<string, unknown> | null)?.bio as
-        | string
-        | null) ?? null,
+    ...publicSummary,
+    ...extractProfileMetadata(personMetadata),
+    relatedLegislatures: sortedRelatedRows.map((row) => ({
+      id: row.id,
+      legislature: row.legislature,
+      groupCode: row.groupCode,
+      groupName: row.groupName,
+      isCurrent: row.id === summary.id,
+    })),
   }
 }
 
@@ -1461,7 +1583,7 @@ export async function listPeople(input: {
   const clauses = []
 
   if (input.search) {
-    clauses.push(ilike(legislators.fullName, `%${input.search}%`))
+    clauses.push(...buildNormalizedNameSearchClauses(people.normalizedName, input.search))
   }
 
   if (input.legislature) {
@@ -1475,49 +1597,148 @@ export async function listPeople(input: {
         ? clauses[0]
         : and(...clauses)
 
-  const items = await db
+  const rows = await db
     .select({
-      id: legislators.id,
+      personId: people.id,
+      id: people.id,
+      legislatorId: legislators.id,
       fullName: legislators.fullName,
-      normalizedName: legislators.normalizedName,
+      normalizedName: people.normalizedName,
       legislature: legislators.legislature,
       groupCode: parliamentaryGroups.code,
       groupName: parliamentaryGroups.name,
-      metadata: legislators.metadata,
+      personMetadata: people.metadata,
     })
     .from(legislators)
+    .innerJoin(people, eq(legislators.personId, people.id))
     .leftJoin(
       parliamentaryGroups,
       eq(legislators.currentGroupId, parliamentaryGroups.id)
     )
     .where(whereClause)
     .orderBy(asc(legislators.fullName))
-    .limit(pageSize)
-    .offset((page - 1) * pageSize)
-
-  const [totalRow] = await db
-    .select({
-      total: count(legislators.id),
-    })
-    .from(legislators)
-    .where(whereClause)
+  const dedupedRows = input.legislature
+    ? rows
+    : [...dedupePeopleRows(rows).values()]
+  const pagedRows = dedupedRows.slice((page - 1) * pageSize, page * pageSize)
 
   return {
     page,
     pageSize,
-    total: Number(totalRow?.total ?? 0),
-    items: items.map((item) => ({
-      ...item,
-      imageUrl:
-        ((item.metadata as Record<string, unknown> | null)?.imageUrl as
-          | string
-          | null) ?? null,
-      bio:
-        ((item.metadata as Record<string, unknown> | null)?.bio as
-          | string
-          | null) ?? null,
-    })),
+    total: dedupedRows.length,
+    items: pagedRows.map((item) => {
+      const { personMetadata, ...publicItem } = item
+
+      return {
+        ...publicItem,
+        ...extractProfileMetadata(personMetadata),
+      }
+    }),
   }
+}
+
+function dedupePeopleRows<
+  T extends {
+    personId: string
+    legislature: string
+    personMetadata: unknown
+  },
+>(rows: T[]) {
+  const deduped = new Map<string, T>()
+
+  for (const row of rows) {
+    const current = deduped.get(row.personId)
+
+    if (!current) {
+      deduped.set(row.personId, row)
+      continue
+    }
+
+    if (comparePeopleRows(row, current) < 0) {
+      deduped.set(row.personId, row)
+    }
+  }
+
+  return deduped
+}
+
+function comparePeopleRows<
+  T extends {
+    legislature: string
+    personMetadata: unknown
+  },
+>(left: T, right: T) {
+  const legislatureDiff =
+    legislatureRank(right.legislature) - legislatureRank(left.legislature)
+
+  if (legislatureDiff !== 0) return legislatureDiff
+
+  const leftHasProfile = hasProfileData(left.personMetadata)
+  const rightHasProfile = hasProfileData(right.personMetadata)
+
+  if (leftHasProfile !== rightHasProfile) {
+    return rightHasProfile ? 1 : -1
+  }
+
+  return 0
+}
+
+function legislatureRank(value: string) {
+  const map: Record<string, number> = {
+    LX: 60,
+    LXI: 61,
+    LXII: 62,
+    LXIII: 63,
+    LXIV: 64,
+    LXV: 65,
+    LXVI: 66,
+    LXVII: 67,
+    LXVIII: 68,
+  }
+
+  return map[value.toUpperCase()] ?? 0
+}
+
+async function resolveLegislatorIdForPerson(
+  personId: string,
+  legislature?: string
+) {
+  const rows = await db
+    .select({
+      id: legislators.id,
+      legislature: legislators.legislature,
+    })
+    .from(legislators)
+    .where(eq(legislators.personId, personId))
+
+  if (rows.length === 0) {
+    throw new Error("Person not found.")
+  }
+
+  if (legislature) {
+    const exact = rows.find((row) => row.legislature === legislature)
+
+    if (exact) {
+      return exact.id
+    }
+  }
+
+  const fallback = [...rows].sort(
+    (left, right) =>
+      legislatureRank(right.legislature) - legislatureRank(left.legislature)
+  )[0]
+
+  if (!fallback) {
+    throw new Error("Person not found.")
+  }
+
+  return fallback.id
+}
+
+function hasProfileData(metadata: unknown) {
+  const record = metadata as Record<string, unknown> | null
+
+  return Boolean(record?.imageUrl || record?.bio)
 }
 
 export async function updateLegislatorProfile(
@@ -1530,9 +1751,11 @@ export async function updateLegislatorProfile(
   const [existing] = await db
     .select({
       id: legislators.id,
-      metadata: legislators.metadata,
+      personId: legislators.personId,
+      personMetadata: people.metadata,
     })
     .from(legislators)
+    .innerJoin(people, eq(legislators.personId, people.id))
     .where(eq(legislators.id, legislatorId))
     .limit(1)
 
@@ -1541,10 +1764,10 @@ export async function updateLegislatorProfile(
   }
 
   const currentMetadata =
-    (existing.metadata as Record<string, unknown> | null) ?? {}
+    (existing.personMetadata as Record<string, unknown> | null) ?? {}
 
   const [updated] = await db
-    .update(legislators)
+    .update(people)
     .set({
       metadata: {
         ...currentMetadata,
@@ -1553,14 +1776,41 @@ export async function updateLegislatorProfile(
       },
       updatedAt: new Date(),
     })
-    .where(eq(legislators.id, legislatorId))
+    .where(eq(people.id, existing.personId))
     .returning({
-      id: legislators.id,
-      metadata: legislators.metadata,
-      updatedAt: legislators.updatedAt,
+      id: people.id,
+      metadata: people.metadata,
+      updatedAt: people.updatedAt,
     })
 
   return updated
+}
+
+export async function getPersonById(personId: string, legislature?: string) {
+  const legislatorId = await resolveLegislatorIdForPerson(personId, legislature)
+
+  return getLegislatorById(legislatorId)
+}
+
+export async function getPersonAttendanceHistory(
+  personId: string,
+  legislature?: string
+) {
+  const legislatorId = await resolveLegislatorIdForPerson(personId, legislature)
+
+  return getLegislatorAttendanceHistory(legislatorId)
+}
+
+export async function getPersonTrend(
+  personId: string,
+  scope: AnalyticsScope = {}
+) {
+  const legislatorId = await resolveLegislatorIdForPerson(
+    personId,
+    scope.legislature
+  )
+
+  return getLegislatorTrend(legislatorId, scope)
 }
 
 export async function getLegislatorAttendanceHistory(legislatorId: string) {
@@ -1834,7 +2084,9 @@ export async function getPartyTrends(scope: AnalyticsScope = {}) {
 
     if (existing.pointsByDate.has(dateKey)) {
       existingPoint.sessionType =
-        existingPoint.sessionType === row.sessionType ? row.sessionType : "mixed"
+        existingPoint.sessionType === row.sessionType
+          ? row.sessionType
+          : "mixed"
       existingPoint.aggregatedSessionCount += 1
       existingPoint.attendanceCount += row.attendanceCount
       existingPoint.cedulaCount += row.cedulaCount
@@ -1896,7 +2148,9 @@ export async function getPartyTrends(scope: AnalyticsScope = {}) {
           }
         })
         .sort((a, b) =>
-          (a.sessionDate ?? a.sessionId).localeCompare(b.sessionDate ?? b.sessionId)
+          (a.sessionDate ?? a.sessionId).localeCompare(
+            b.sessionDate ?? b.sessionId
+          )
         ),
     })),
   }

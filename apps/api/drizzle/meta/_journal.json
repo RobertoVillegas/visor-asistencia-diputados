@@ -43,6 +43,13 @@
       "when": 1776500000000,
       "tag": "0005_ingest_anomalies",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776600000000,
+      "tag": "0006_canonical_people",
+      "breakpoints": true
     }
   ]
 }

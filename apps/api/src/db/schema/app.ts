@@ -237,10 +237,36 @@ export const parliamentaryGroups = pgTable(
   })
 )
 
+export const people = pgTable(
+  "people",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fullName: text("full_name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    normalizedNameUnique: uniqueIndex("people_normalized_name_uidx").on(
+      table.normalizedName
+    ),
+  })
+)
+
 export const legislators = pgTable(
   "legislators",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    personId: uuid("person_id")
+      .notNull()
+      .references(() => people.id, {
+        onDelete: "cascade",
+      }),
     legislature: text("legislature").notNull(),
     fullName: text("full_name").notNull(),
     normalizedName: text("normalized_name").notNull(),
@@ -260,6 +286,7 @@ export const legislators = pgTable(
       .defaultNow(),
   },
   (table) => ({
+    personIdx: index("legislators_person_id_idx").on(table.personId),
     legislatureNormalizedNameUnique: uniqueIndex(
       "legislators_legislature_normalized_name_uidx"
     ).on(table.legislature, table.normalizedName),
