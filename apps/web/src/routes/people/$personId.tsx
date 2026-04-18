@@ -351,7 +351,7 @@ function PersonDetailPage() {
                       Registro por sesión con el estatus normalizado del PDF oficial.
                     </p>
 
-                    <div className="mt-5 max-h-[28rem] overflow-x-auto overflow-y-auto rounded-[1.6rem] border border-border/70">
+                    <div className="mt-5 max-h-[28rem] overflow-auto rounded-[1.6rem] border border-border/70">
                       <table className="min-w-full text-left text-sm">
                         <thead className="bg-muted/60 text-xs tracking-[0.24em] text-muted-foreground uppercase">
                           <tr>
