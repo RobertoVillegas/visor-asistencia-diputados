@@ -7,12 +7,12 @@ import { env } from "../env";
 export const auth = betterAuth({
   appName: "Gaceta Attendance API",
   baseURL: env.BETTER_AUTH_URL,
-  trustedOrigins: [env.CORS_ORIGIN],
-  secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
   emailAndPassword: {
     enabled: true,
   },
+  secret: env.BETTER_AUTH_SECRET,
+  trustedOrigins: [env.CORS_ORIGIN],
 });

@@ -1,8 +1,8 @@
-import { formatInteger, formatPercent } from "../lib/format"
-import type { PartyAnalyticsRow } from "../lib/api"
+import { formatInteger, formatPercent } from "../lib/format";
+import type { PartyAnalyticsRow } from "../lib/api";
 
-type PartySummaryCardsProps = {
-  parties: PartyAnalyticsRow[]
+interface PartySummaryCardsProps {
+  parties: PartyAnalyticsRow[];
 }
 
 export function PartySummaryCards({ parties }: PartySummaryCardsProps) {
@@ -12,7 +12,7 @@ export function PartySummaryCards({ parties }: PartySummaryCardsProps) {
         <p className="text-sm">No hay datos disponibles</p>
         <p className="mt-1 text-xs">Selecciona un periodo importado</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -20,18 +20,14 @@ export function PartySummaryCards({ parties }: PartySummaryCardsProps) {
       {parties.map((party) => {
         const participacionRatio =
           party.totalCount > 0
-            ? (party.attendanceCount +
-                party.cedulaCount +
-                party.officialCommissionCount) /
+            ? (party.attendanceCount + party.cedulaCount + party.officialCommissionCount) /
               party.totalCount
-            : 0
+            : 0;
         const inasistenciaRatio =
           party.totalCount > 0
-            ? (party.absenceCount +
-                party.boardLeaveCount +
-                party.notPresentInVotesCount) /
+            ? (party.absenceCount + party.boardLeaveCount + party.notPresentInVotesCount) /
               party.totalCount
-            : 0
+            : 0;
         return (
           <div
             key={party.groupCode}
@@ -39,12 +35,8 @@ export function PartySummaryCards({ parties }: PartySummaryCardsProps) {
           >
             <div className="mb-3 flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-foreground">
-                  {party.groupCode}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {party.groupName}
-                </p>
+                <h3 className="text-lg font-semibold text-foreground">{party.groupCode}</h3>
+                <p className="text-xs text-muted-foreground">{party.groupName}</p>
               </div>
               <span className="text-xs font-medium text-muted-foreground">
                 {formatInteger(party.sessionCount)} sesiones
@@ -90,15 +82,13 @@ export function PartySummaryCards({ parties }: PartySummaryCardsProps) {
                 <p className="text-muted-foreground">Justificada</p>
               </div>
               <div>
-                <p className="font-semibold text-rose-600">
-                  {formatInteger(party.absenceCount)}
-                </p>
+                <p className="font-semibold text-rose-600">{formatInteger(party.absenceCount)}</p>
                 <p className="text-muted-foreground">Inasistencia</p>
               </div>
             </div>
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }

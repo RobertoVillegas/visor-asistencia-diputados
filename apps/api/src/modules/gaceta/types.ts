@@ -1,17 +1,17 @@
-export type LegislativePeriod = {
+export interface LegislativePeriod {
   label: string;
   legislature: string;
   yearSpan: string;
   periodPageUrl: string;
-};
+}
 
-export type SessionDocumentLink = {
+export interface SessionDocumentLink {
   kind: "attendance" | "absence";
   url: string;
   label: string;
-};
+}
 
-export type DiscoveredSession = {
+export interface DiscoveredSession {
   title: string;
   gacetaNumber: number | null;
   sessionDate: Date | null;
@@ -19,4 +19,4 @@ export type DiscoveredSession = {
   sessionPageUrl: string;
   sourceSlug: string;
   documents: SessionDocumentLink[];
-};
+}

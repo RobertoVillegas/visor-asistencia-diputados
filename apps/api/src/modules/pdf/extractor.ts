@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 import { extractText, getDocumentProxy } from "unpdf";
 
-export type ExtractedPdfDocument = {
+export interface ExtractedPdfDocument {
   pageCount: number;
   rawText: string;
   pages: string[];
-};
+}
 
-export type FetchedPdf = {
+export interface FetchedPdf {
   bytes: Uint8Array;
   contentHash: string;
   byteSize: number;
@@ -15,7 +15,7 @@ export type FetchedPdf = {
   lastModified: string | null;
   contentType: string | null;
   httpStatus: number;
-};
+}
 
 export async function fetchPdfFromUrl(url: string): Promise<FetchedPdf> {
   const response = await fetch(url);
@@ -27,13 +27,13 @@ export async function fetchPdfFromUrl(url: string): Promise<FetchedPdf> {
   const contentHash = createHash("sha256").update(bytes).digest("hex");
 
   return {
+    byteSize: bytes.byteLength,
     bytes,
     contentHash,
-    byteSize: bytes.byteLength,
-    etag: response.headers.get("etag"),
-    lastModified: response.headers.get("last-modified"),
     contentType: response.headers.get("content-type"),
+    etag: response.headers.get("etag"),
     httpStatus: response.status,
+    lastModified: response.headers.get("last-modified"),
   };
 }
 
@@ -47,8 +47,8 @@ export async function extractPdfTextFromBytes(bytes: Uint8Array): Promise<Extrac
 
   return {
     pageCount: merged.totalPages,
-    rawText: typeof merged.text === "string" ? merged.text : String(merged.text),
     pages,
+    rawText: typeof merged.text === "string" ? merged.text : String(merged.text),
   };
 }
 

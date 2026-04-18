@@ -24,12 +24,23 @@ function absoluteUrl(input: string): string {
 }
 
 function getDeclaredCharset(contentType: string | null, htmlPreview: string): string | null {
-  const headerCharset = contentType?.match(/charset=([^;]+)/i)?.[1]?.trim().toLowerCase();
-  if (headerCharset) return headerCharset;
+  const headerCharset = contentType
+    ?.match(/charset=([^;]+)/i)?.[1]
+    ?.trim()
+    .toLowerCase();
+  if (headerCharset) {
+    return headerCharset;
+  }
 
   const metaCharset =
-    htmlPreview.match(/<meta[^>]+charset=["']?([^"'>\s]+)/i)?.[1]?.trim().toLowerCase() ??
-    htmlPreview.match(/<meta[^>]+content=["'][^"']*charset=([^"'>\s;]+)/i)?.[1]?.trim().toLowerCase();
+    htmlPreview
+      .match(/<meta[^>]+charset=["']?([^"'>\s]+)/i)?.[1]
+      ?.trim()
+      .toLowerCase() ??
+    htmlPreview
+      .match(/<meta[^>]+content=["'][^"']*charset=([^"'>\s;]+)/i)?.[1]
+      ?.trim()
+      .toLowerCase();
 
   return metaCharset ?? null;
 }
@@ -69,17 +80,27 @@ async function fetchHtml(url: string): Promise<string> {
 }
 
 function normalizeText(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
+  return value.replaceAll(/\s+/g, " ").trim();
 }
 
 function inferSessionType(sessionPageUrl: string, title: string): DiscoveredSession["sessionType"] {
   const value = `${sessionPageUrl} ${title}`.toLowerCase();
 
-  if (value.includes("-cp-") || value.includes("asistenciasp")) return "permanent";
-  if (value.includes("comisi") && value.includes("permanente")) return "permanent";
-  if (value.includes("-v-") || value.includes(" vot")) return "vote";
-  if (value.includes("-s-") || (value.includes("sesi") && value.includes("especial"))) return "special";
-  if (value.includes("ordinaria")) return "ordinary";
+  if (value.includes("-cp-") || value.includes("asistenciasp")) {
+    return "permanent";
+  }
+  if (value.includes("comisi") && value.includes("permanente")) {
+    return "permanent";
+  }
+  if (value.includes("-v-") || value.includes(" vot")) {
+    return "vote";
+  }
+  if (value.includes("-s-") || (value.includes("sesi") && value.includes("especial"))) {
+    return "special";
+  }
+  if (value.includes("ordinaria")) {
+    return "ordinary";
+  }
   return "unknown";
 }
 
@@ -90,13 +111,22 @@ function parseGacetaNumber(title: string): number | null {
 
 function parseSpanishDate(title: string): Date | null {
   const match = title.match(/(\d{1,2})\s+de\s+([a-záéíóú]+)\s+de\s+(\d{4})/i);
-  if (!match) return null;
+  if (!match) {
+    return null;
+  }
 
   const day = Number(match[1]);
-  const month = monthMap.get(match[2].toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, ""));
+  const month = monthMap.get(
+    match[2]
+      .toLowerCase()
+      .normalize("NFD")
+      .replaceAll(/\p{Diacritic}/gu, ""),
+  );
   const year = Number(match[3]);
 
-  if (month === undefined) return null;
+  if (month === undefined) {
+    return null;
+  }
   return new Date(Date.UTC(year, month, day, 18, 0, 0));
 }
 
@@ -121,11 +151,15 @@ function periodYearStart(yearSpan: string): number {
 }
 
 export function pickLatestPeriod(periods: LegislativePeriod[]): LegislativePeriod | null {
-  if (periods.length === 0) return null;
+  if (periods.length === 0) {
+    return null;
+  }
 
-  const sorted = [...periods].sort((a, b) => {
+  const sorted = [...periods].toSorted((a, b) => {
     const legDiff = legislatureRank(b.legislature) - legislatureRank(a.legislature);
-    if (legDiff !== 0) return legDiff;
+    if (legDiff !== 0) {
+      return legDiff;
+    }
     return periodYearStart(b.yearSpan) - periodYearStart(a.yearSpan);
   });
 
@@ -145,7 +179,9 @@ export async function fetchAttendancePeriods(): Promise<LegislativePeriod[]> {
 
   for (const table of $("table").toArray()) {
     const text = normalizeText($(table).text());
-    const legislatureMatch = text.match(/durante la\s+(LXVI|LXV|LXIV|LXIII|LXII|LXI|LX)\s+Legislatura/i);
+    const legislatureMatch = text.match(
+      /durante la\s+(LXVI|LXV|LXIV|LXIII|LXII|LXI|LX)\s+Legislatura/i,
+    );
     if (legislatureMatch) {
       currentLegislature = legislatureMatch[1].toUpperCase();
     }
@@ -155,15 +191,17 @@ export async function fetchAttendancePeriods(): Promise<LegislativePeriod[]> {
       .each((_, anchor) => {
         const label = normalizeText($(anchor).text());
         const href = $(anchor).attr("href");
-        if (!href || !currentLegislature) return;
+        if (!href || !currentLegislature) {
+          return;
+        }
 
         const yearSpanMatch = label.match(/(septiembre\s+\d{4}\s+-\s+agosto\s+\d{4})/i);
 
         periods.push({
           label,
           legislature: currentLegislature,
-          yearSpan: yearSpanMatch?.[1] ?? label,
           periodPageUrl: absoluteUrl(href),
+          yearSpan: yearSpanMatch?.[1] ?? label,
         });
       });
   }
@@ -190,14 +228,16 @@ function extractDocumentLinks(html: string): SessionDocumentLink[] {
     .map((anchor) => {
       const href = $(anchor).attr("href");
       const label = normalizeText($(anchor).text());
-      if (!href) return null;
+      if (!href) {
+        return null;
+      }
 
       const lower = label.toLowerCase();
       if (lower.includes("inasistencias")) {
-        return { kind: "absence" as const, url: absoluteUrl(href), label };
+        return { kind: "absence" as const, label, url: absoluteUrl(href) };
       }
       if (lower.includes("asistencias")) {
-        return { kind: "attendance" as const, url: absoluteUrl(href), label };
+        return { kind: "attendance" as const, label, url: absoluteUrl(href) };
       }
       return null;
     })
@@ -209,15 +249,19 @@ export async function fetchSessionDetails(sessionPageUrl: string): Promise<Disco
   const $ = cheerio.load(html);
   const title = normalizeText($("#NGaceta").text() || $("title").text());
   const documents = extractDocumentLinks(html);
-  const sourceSlug = sessionPageUrl.split("/").at(-1)?.replace(/\.html$/i, "") ?? sessionPageUrl;
+  const sourceSlug =
+    sessionPageUrl
+      .split("/")
+      .at(-1)
+      ?.replace(/\.html$/i, "") ?? sessionPageUrl;
 
   return {
-    title,
+    documents,
     gacetaNumber: parseGacetaNumber(title),
     sessionDate: parseSpanishDate(title),
-    sessionType: inferSessionType(sessionPageUrl, title),
     sessionPageUrl,
+    sessionType: inferSessionType(sessionPageUrl, title),
     sourceSlug,
-    documents,
+    title,
   };
 }

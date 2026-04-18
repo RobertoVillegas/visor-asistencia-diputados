@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
   BarChart,
@@ -10,64 +10,51 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from "recharts"
-import { useEffect, useMemo, useState } from "react"
+} from "recharts";
+import { useEffect, useMemo, useState } from "react";
 
-import { LegislatorsTable } from "../components/legislators-table"
-import {
-  FadeIn,
-  StaggerItem,
-  StaggerList,
-  SwappableContent,
-} from "../components/reveal"
-import { api } from "../lib/api"
-import { formatCompactDate, formatInteger, formatPercent } from "../lib/format"
+import { LegislatorsTable } from "../components/legislators-table";
+import { FadeIn, StaggerItem, StaggerList, SwappableContent } from "../components/reveal";
+import { api } from "../lib/api";
+import { formatCompactDate, formatInteger, formatPercent } from "../lib/format";
 
-type DashboardSearch = {
-  legislature?: string
-  periodId?: string
+interface DashboardSearch {
+  legislature?: string;
+  periodId?: string;
 }
 
-const PARTY_COLORS = [
-  "#6e342d",
-  "#a0522d",
-  "#b38b59",
-  "#586b4f",
-  "#345c69",
-  "#7b4b94",
-]
+const PARTY_COLORS = ["#6e342d", "#a0522d", "#b38b59", "#586b4f", "#345c69", "#7b4b94"];
 
-const LEGISLATOR_SORT_OPTIONS: Array<{
+const LEGISLATOR_SORT_OPTIONS: {
   value:
     | "name"
     | "attendance_ratio"
     | "attendance_count"
     | "absence_count"
     | "justified_absence_count"
-    | "sessions_mentioned"
-  label: string
-}> = [
-  { value: "attendance_ratio", label: "Mejor porcentaje de asistencia" },
-  { value: "attendance_count", label: "Más asistencias registradas" },
-  { value: "sessions_mentioned", label: "Más sesiones registradas" },
-  { value: "absence_count", label: "Más inasistencias" },
-  { value: "justified_absence_count", label: "Más justificadas" },
-  { value: "name", label: "Nombre (A-Z)" },
-]
+    | "sessions_mentioned";
+  label: string;
+}[] = [
+  { label: "Mejor porcentaje de asistencia", value: "attendance_ratio" },
+  { label: "Más asistencias registradas", value: "attendance_count" },
+  { label: "Más sesiones registradas", value: "sessions_mentioned" },
+  { label: "Más inasistencias", value: "absence_count" },
+  { label: "Más justificadas", value: "justified_absence_count" },
+  { label: "Nombre (A-Z)", value: "name" },
+];
 
 export const Route = createFileRoute("/")({
+  component: DashboardPage,
   validateSearch: (search): DashboardSearch => ({
-    legislature:
-      typeof search.legislature === "string" ? search.legislature : undefined,
+    legislature: typeof search.legislature === "string" ? search.legislature : undefined,
     periodId: typeof search.periodId === "string" ? search.periodId : undefined,
   }),
-  component: DashboardPage,
-})
+});
 
 function DashboardPage() {
-  const search = Route.useSearch()
-  const navigate = Route.useNavigate()
-  const [legislatorSearch, setLegislatorSearch] = useState("")
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [legislatorSearch, setLegislatorSearch] = useState("");
   const [legislatorSort, setLegislatorSort] = useState<
     | "name"
     | "attendance_ratio"
@@ -75,81 +62,73 @@ function DashboardPage() {
     | "absence_count"
     | "justified_absence_count"
     | "sessions_mentioned"
-  >("attendance_ratio")
-  const [hiddenTrendSeries, setHiddenTrendSeries] = useState<Set<string>>(
-    new Set()
-  )
+  >("attendance_ratio");
+  const [hiddenTrendSeries, setHiddenTrendSeries] = useState<Set<string>>(new Set());
 
   const periodsQuery = useQuery({
-    queryKey: ["dashboard-periods"],
     queryFn: async () => {
       const [remotePeriods, storedPeriods, latestResponse] = await Promise.all([
         api.listPeriods(),
         api.listStoredPeriods(),
         api.getLatestPeriod(),
-      ])
+      ]);
 
-      const storedByUrl = new Map(
-        storedPeriods.map((period) => [period.periodPageUrl, period])
-      )
+      const storedByUrl = new Map(storedPeriods.map((period) => [period.periodPageUrl, period]));
       const periods = remotePeriods.map((period) => {
-        const stored = storedByUrl.get(period.periodPageUrl)
+        const stored = storedByUrl.get(period.periodPageUrl);
 
         return {
           ...period,
-          storedPeriodId: stored?.id,
           discoveredAt: stored?.discoveredAt,
           isImported: Boolean(stored),
-        }
-      })
+          storedPeriodId: stored?.id,
+        };
+      });
 
       return {
-        periods,
         latestRemote: latestResponse.latest,
-      }
+        periods,
+      };
     },
-  })
+    queryKey: ["dashboard-periods"],
+  });
 
-  const periods = periodsQuery.data?.periods ?? []
-  const latestRemote = periodsQuery.data?.latestRemote ?? null
+  const periods = periodsQuery.data?.periods ?? [];
+  const latestRemote = periodsQuery.data?.latestRemote ?? null;
 
   const latestPeriod =
-    periods.find(
-      (period) => period.periodPageUrl === latestRemote?.periodPageUrl
-    ) ??
+    periods.find((period) => period.periodPageUrl === latestRemote?.periodPageUrl) ??
     (latestRemote ? { ...latestRemote, isImported: false } : null) ??
     periods[0] ??
-    null
-  const selectedLegislature = search.legislature ?? latestPeriod?.legislature
-  const visiblePeriods = periods.filter(
-    (period) => period.legislature === selectedLegislature
-  )
+    null;
+  const selectedLegislature = search.legislature ?? latestPeriod?.legislature;
+  const visiblePeriods = periods.filter((period) => period.legislature === selectedLegislature);
   const defaultVisiblePeriod =
     (latestPeriod && latestPeriod.legislature === selectedLegislature
-      ? visiblePeriods.find(
-          (period) => period.periodPageUrl === latestPeriod.periodPageUrl
-        )
+      ? visiblePeriods.find((period) => period.periodPageUrl === latestPeriod.periodPageUrl)
       : undefined) ??
     visiblePeriods.find((period) => period.isImported) ??
-    visiblePeriods[0]
+    visiblePeriods[0];
   const selectedRemotePeriod =
     visiblePeriods.find((period) => period.periodPageUrl === search.periodId) ??
-    defaultVisiblePeriod
-  const selectedPeriodId = selectedRemotePeriod?.storedPeriodId
+    defaultVisiblePeriod;
+  const selectedPeriodId = selectedRemotePeriod?.storedPeriodId;
   const dashboardScope = useMemo(
     () =>
       selectedLegislature && selectedPeriodId
         ? {
+            includePermanent: false,
             legislature: selectedLegislature,
             periodId: selectedPeriodId,
-            includePermanent: false,
           }
         : null,
-    [selectedLegislature, selectedPeriodId]
-  )
+    [selectedLegislature, selectedPeriodId],
+  );
 
   useEffect(() => {
-    if (!periods.length) return
+    if (!periods.length) {
+      return;
+    }
 
     if (!search.legislature || !search.periodId) {
       void navigate({
@@ -159,7 +138,7 @@ function DashboardPage() {
           legislature: prev.legislature ?? latestPeriod?.legislature,
           periodId: prev.periodId ?? defaultVisiblePeriod?.periodPageUrl,
         }),
-      })
+      });
     }
   }, [
     defaultVisiblePeriod?.periodPageUrl,
@@ -168,60 +147,53 @@ function DashboardPage() {
     periods.length,
     search.legislature,
     search.periodId,
-  ])
+  ]);
 
   const overviewQuery = useQuery({
-    queryKey: ["analytics-overview", dashboardScope],
-    queryFn: () => api.getOverview(dashboardScope!),
     enabled: Boolean(dashboardScope),
-  })
+    queryFn: () => api.getOverview(dashboardScope!),
+    queryKey: ["analytics-overview", dashboardScope],
+  });
 
   const partiesQuery = useQuery({
-    queryKey: ["analytics-parties", dashboardScope],
-    queryFn: () => api.getParties(dashboardScope!),
     enabled: Boolean(dashboardScope),
-  })
+    queryFn: () => api.getParties(dashboardScope!),
+    queryKey: ["analytics-parties", dashboardScope],
+  });
 
   const trendsQuery = useQuery({
-    queryKey: ["analytics-party-trends", dashboardScope],
-    queryFn: () => api.getPartyTrends(dashboardScope!),
     enabled: Boolean(dashboardScope),
-  })
+    queryFn: () => api.getPartyTrends(dashboardScope!),
+    queryKey: ["analytics-party-trends", dashboardScope],
+  });
 
   const qualityQuery = useQuery({
-    queryKey: ["analytics-quality", dashboardScope],
-    queryFn: () => api.getQuality(dashboardScope!),
     enabled: Boolean(dashboardScope),
-  })
+    queryFn: () => api.getQuality(dashboardScope!),
+    queryKey: ["analytics-quality", dashboardScope],
+  });
 
   const legislatorsQuery = useQuery({
-    queryKey: [
-      "analytics-legislators",
-      dashboardScope,
-      legislatorSearch,
-      legislatorSort,
-    ],
+    enabled: Boolean(dashboardScope),
+    placeholderData: (previousData) => previousData,
     queryFn: () =>
       api.listLegislators({
         ...dashboardScope!,
+        order: legislatorSort === "name" ? "asc" : "desc",
         q: legislatorSearch || undefined,
         sort: legislatorSort,
-        order: legislatorSort === "name" ? "asc" : "desc",
       }),
-    enabled: Boolean(dashboardScope),
-    placeholderData: (previousData) => previousData,
-  })
+    queryKey: ["analytics-legislators", dashboardScope, legislatorSearch, legislatorSort],
+  });
 
-  const overview = overviewQuery.data ?? null
-  const parties = partiesQuery.data ?? []
-  const trends = trendsQuery.data ?? null
-  const quality = qualityQuery.data ?? null
-  const legislators = legislatorsQuery.data ?? []
-  const isPeriodsLoading = periodsQuery.isPending
-  const isLoading =
-    Boolean(dashboardScope) &&
-    (overviewQuery.isPending || qualityQuery.isPending)
-  const isLegislatorsLoading = legislatorsQuery.isFetching
+  const overview = overviewQuery.data ?? null;
+  const parties = partiesQuery.data ?? [];
+  const trends = trendsQuery.data ?? null;
+  const quality = qualityQuery.data ?? null;
+  const legislators = legislatorsQuery.data ?? [];
+  const isPeriodsLoading = periodsQuery.isPending;
+  const isLoading = Boolean(dashboardScope) && (overviewQuery.isPending || qualityQuery.isPending);
+  const isLegislatorsLoading = legislatorsQuery.isFetching;
   const error =
     (periodsQuery.error as Error | null)?.message ??
     (overviewQuery.error as Error | null)?.message ??
@@ -229,12 +201,12 @@ function DashboardPage() {
     (trendsQuery.error as Error | null)?.message ??
     (qualityQuery.error as Error | null)?.message ??
     (legislatorsQuery.error as Error | null)?.message ??
-    null
+    null;
 
   const headlinePeriod = useMemo(
     () => selectedRemotePeriod ?? latestPeriod,
-    [latestPeriod, selectedRemotePeriod]
-  )
+    [latestPeriod, selectedRemotePeriod],
+  );
 
   // All trend series, sorted by latest resolved ratio
   const allTrendLines = useMemo(
@@ -246,146 +218,135 @@ function DashboardPage() {
         }))
         .filter((series) => series.points.length > 0)
         .sort((a, b) => {
-          const lastA = a.points.at(-1)?.resolvedRatio ?? 0
-          const lastB = b.points.at(-1)?.resolvedRatio ?? 0
-          return lastB - lastA
+          const lastA = a.points.at(-1)?.resolvedRatio ?? 0;
+          const lastB = b.points.at(-1)?.resolvedRatio ?? 0;
+          return lastB - lastA;
         }),
-    [trends]
-  )
+    [trends],
+  );
 
   // Visible trend lines (excluding hidden ones)
   const trendLines = useMemo(
     () => allTrendLines.filter((series) => !hiddenTrendSeries.has(series.key)),
-    [allTrendLines, hiddenTrendSeries]
-  )
+    [allTrendLines, hiddenTrendSeries],
+  );
 
   // Toggle series visibility
   const toggleTrendSeries = (key: string) => {
     setHiddenTrendSeries((prev) => {
-      const next = new Set(prev)
+      const next = new Set(prev);
       if (next.has(key)) {
-        next.delete(key)
+        next.delete(key);
       } else {
-        next.add(key)
+        next.add(key);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
   // Calcular el rango mínimo para la escala relativa
   // Usar percentil 10 para ignorar outliers (valores atípicos)
   const trendYDomain = useMemo(() => {
     // Lista de códigos de partidos principales (no outliers)
-    const mainPartyCodes = new Set([
-      "MORENA",
-      "PAN",
-      "PRI",
-      "PRD",
-      "PVEM",
-      "PT",
-      "MC",
-    ])
+    const mainPartyCodes = new Set(["MORENA", "PAN", "PRI", "PRD", "PVEM", "PT", "MC"]);
 
-    let allValues: number[] = []
+    const allValues: number[] = [];
 
     // Recolectar todos los valores de partidos principales
     for (const series of trendLines) {
-      if (!mainPartyCodes.has(series.key)) continue
+      if (!mainPartyCodes.has(series.key)) {
+        continue;
+      }
 
       for (const point of series.points) {
-        const value = point.resolvedRatio * 100
+        const value = point.resolvedRatio * 100;
         if (value > 0) {
-          allValues.push(value)
+          allValues.push(value);
         }
       }
     }
 
     // Si no hay valores, usar default
     if (allValues.length === 0) {
-      return [75, 100] as [number, number]
+      return [75, 100] as [number, number];
     }
 
     // Calcular percentil 10 (ignora el 10% de valores más bajos - outliers)
-    const sortedValues = allValues.sort((a, b) => a - b)
-    const percentile10Index = Math.floor(sortedValues.length * 0.1)
-    const percentile10Value = sortedValues[percentile10Index]
+    const sortedValues = [...allValues].sort((a, b) => a - b);
+    const percentile10Index = Math.floor(sortedValues.length * 0.1);
+    const percentile10Value = sortedValues[percentile10Index];
 
     // Dar contexto visual sin comprimir toda la variación en 0-100.
-    const domainMin = Math.max(50, Math.floor((percentile10Value - 15) / 5) * 5)
-    const domainMax = 100
+    const domainMin = Math.max(50, Math.floor((percentile10Value - 15) / 5) * 5);
+    const domainMax = 100;
 
-    return [domainMin, domainMax] as [number, number]
-  }, [trendLines])
+    return [domainMin, domainMax] as [number, number];
+  }, [trendLines]);
 
   const trendChartData = useMemo(() => {
     const byDate = new Map<
       string,
       {
-        date: string
-        label: string
-        sessionCount: number
-        [key: string]: number | string
+        date: string;
+        label: string;
+        sessionCount: number;
+        [key: string]: number | string;
       }
-    >()
+    >();
 
     for (const series of trendLines) {
       for (const point of series.points) {
-        if (!point.sessionDate) continue
+        if (!point.sessionDate) {
+          continue;
+        }
 
         const current = byDate.get(point.sessionDate) ?? {
           date: point.sessionDate,
           label: formatCompactDate(point.sessionDate),
           sessionCount: 0,
-        }
+        };
 
-        current[series.key] = Number((point.resolvedRatio * 100).toFixed(1))
+        current[series.key] = Number((point.resolvedRatio * 100).toFixed(1));
         current.sessionCount = Math.max(
           Number(current.sessionCount ?? 0),
-          point.aggregatedSessionCount
-        )
-        byDate.set(point.sessionDate, current)
+          point.aggregatedSessionCount,
+        );
+        byDate.set(point.sessionDate, current);
       }
     }
 
-    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
-  }, [trendLines])
+    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  }, [trendLines]);
 
   const partyChartData = useMemo(
     () =>
       parties.map((party) => {
-        const total = party.totalCount || 1
+        const total = party.totalCount || 1;
         const participacionRaw =
-          ((party.attendanceCount +
-            party.cedulaCount +
-            party.officialCommissionCount) /
-            total) *
-          100
-        const justificadaRaw = (party.justifiedAbsenceCount / total) * 100
+          ((party.attendanceCount + party.cedulaCount + party.officialCommissionCount) / total) *
+          100;
+        const justificadaRaw = (party.justifiedAbsenceCount / total) * 100;
 
-        const participacion = Number(participacionRaw.toFixed(1))
-        const justificada = Number(justificadaRaw.toFixed(1))
-        const inasistencia = Number(
-          Math.max(0, 100 - participacion - justificada).toFixed(1)
-        )
+        const participacion = Number(participacionRaw.toFixed(1));
+        const justificada = Number(justificadaRaw.toFixed(1));
+        const inasistencia = Number(Math.max(0, 100 - participacion - justificada).toFixed(1));
 
         return {
           code: party.groupCode,
-          participacion,
-          justificada,
           inasistencia,
-          totalVisible: Number(
-            (participacion + justificada + inasistencia).toFixed(1)
-          ),
-        }
+          justificada,
+          participacion,
+          totalVisible: Number((participacion + justificada + inasistencia).toFixed(1)),
+        };
       }),
-    [parties]
-  )
+    [parties],
+  );
 
   const contentStateKey = [
     selectedLegislature ?? "none",
     selectedRemotePeriod?.periodPageUrl ?? "none",
     overview ? "ready" : "loading",
-  ].join(":")
+  ].join(":");
 
   return (
     <main className="min-h-svh bg-background">
@@ -399,9 +360,9 @@ function DashboardPage() {
                   Asistencia legislativa con lectura publica y contexto.
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-7 text-foreground/78 sm:text-base">
-                  Un tablero para revisar presencia, inasistencias y calidad de
-                  captura en las sesiones del Congreso mexicano, sin esconder el
-                  contexto operativo detras de los porcentajes.
+                  Un tablero para revisar presencia, inasistencias y calidad de captura en las
+                  sesiones del Congreso mexicano, sin esconder el contexto operativo detras de los
+                  porcentajes.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
                   <span className="rounded-full border border-border/80 bg-background/70 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-foreground/80 uppercase">
@@ -413,8 +374,8 @@ function DashboardPage() {
                 </div>
                 {!headlinePeriod?.isImported ? (
                   <p className="mt-4 max-w-2xl rounded-2xl bg-amber-100/80 px-4 py-3 text-sm text-amber-900">
-                    Este periodo existe en la fuente oficial, pero aun no ha
-                    sido importado al backend para construir metricas publicas.
+                    Este periodo existe en la fuente oficial, pero aun no ha sido importado al
+                    backend para construir metricas publicas.
                   </p>
                 ) : null}
                 <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -425,8 +386,8 @@ function DashboardPage() {
                     Explorar directorio
                   </Link>
                   <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-                    La vista prioriza la lectura rapida de cambios por
-                    legislatura y periodo, no solo el resumen agregado.
+                    La vista prioriza la lectura rapida de cambios por legislatura y periodo, no
+                    solo el resumen agregado.
                   </p>
                 </div>
               </div>
@@ -438,10 +399,10 @@ function DashboardPage() {
                     <select
                       className="h-12 rounded-2xl border border-border/80 bg-background/80 px-4 text-sm font-medium text-foreground outline-none"
                       onChange={(event) => {
-                        const legislature = event.target.value
+                        const legislature = event.target.value;
                         const firstPeriodForLegislature = periods.find(
-                          (period) => period.legislature === legislature
-                        )
+                          (period) => period.legislature === legislature,
+                        );
 
                         void navigate({
                           search: (prev) => ({
@@ -449,17 +410,17 @@ function DashboardPage() {
                             legislature,
                             periodId: firstPeriodForLegislature?.periodPageUrl,
                           }),
-                        })
+                        });
                       }}
                       value={selectedLegislature}
                     >
-                      {Array.from(
-                        new Set(periods.map((period) => period.legislature))
-                      ).map((legislature) => (
-                        <option key={legislature} value={legislature}>
-                          {legislature}
-                        </option>
-                      ))}
+                      {[...new Set(periods.map((period) => period.legislature))].map(
+                        (legislature) => (
+                          <option key={legislature} value={legislature}>
+                            {legislature}
+                          </option>
+                        ),
+                      )}
                     </select>
                   </label>
 
@@ -473,15 +434,12 @@ function DashboardPage() {
                             ...prev,
                             periodId: event.target.value,
                           }),
-                        })
+                        });
                       }}
                       value={selectedRemotePeriod?.periodPageUrl}
                     >
                       {visiblePeriods.map((period) => (
-                        <option
-                          key={period.periodPageUrl}
-                          value={period.periodPageUrl}
-                        >
+                        <option key={period.periodPageUrl} value={period.periodPageUrl}>
                           {period.label}
                           {period.isImported ? "" : " · pendiente de importar"}
                         </option>
@@ -498,9 +456,7 @@ function DashboardPage() {
                   />
                   <MiniNote
                     label="Cobertura"
-                    value={formatInteger(
-                      periods.filter((period) => period.isImported).length
-                    )}
+                    value={formatInteger(periods.filter((period) => period.isImported).length)}
                     detail="Periodos disponibles con datos procesados."
                   />
                   <MiniNote
@@ -525,8 +481,7 @@ function DashboardPage() {
             <LoadingPanel label="Cargando periodos..." />
           ) : !selectedRemotePeriod?.isImported ? (
             <section className="rounded-[2rem] border border-amber-300 bg-amber-50/90 p-6 text-sm text-amber-900">
-              El periodo seleccionado aun no tiene informacion publica
-              disponible en este tablero.
+              El periodo seleccionado aun no tiene informacion publica disponible en este tablero.
             </section>
           ) : isLoading || !overview || !quality ? (
             <LoadingPanel label="Cargando dashboard..." />
@@ -541,8 +496,7 @@ function DashboardPage() {
                     title={formatPercent(overview.attendanceRatio)}
                     tone="primary"
                   >
-                    Proporcion de registros con presencia efectiva en el periodo
-                    seleccionado.
+                    Proporcion de registros con presencia efectiva en el periodo seleccionado.
                   </MetricCard>
                   <MetricCard
                     detail={`${formatInteger(quality.reconciledSessions)} sesiones revisadas`}
@@ -550,8 +504,8 @@ function DashboardPage() {
                     subtitle={`${formatPercent(quality.matchRatio)} con informacion consistente`}
                     title={formatInteger(quality.mismatchedSessions)}
                   >
-                    Casos donde la informacion publicada presenta diferencias o
-                    requiere mayor contexto.
+                    Casos donde la informacion publicada presenta diferencias o requiere mayor
+                    contexto.
                   </MetricCard>
                   <MetricCard
                     detail={`${formatInteger(overview.justifiedAbsenceCount)} justificadas`}
@@ -559,8 +513,7 @@ function DashboardPage() {
                     subtitle={`${formatPercent(overview.absenceRatio)} del total registrado`}
                     title={formatInteger(overview.absenceCount)}
                   >
-                    Incluye ausencias y estados no presentes vinculados a
-                    votacion.
+                    Incluye ausencias y estados no presentes vinculados a votacion.
                   </MetricCard>
                 </section>
               </StaggerItem>
@@ -583,16 +536,13 @@ function DashboardPage() {
                             <BarChart
                               data={partyChartData}
                               margin={{
+                                bottom: 10,
                                 left: 8,
                                 right: 8,
                                 top: 10,
-                                bottom: 10,
                               }}
                             >
-                              <CartesianGrid
-                                stroke="rgba(122, 97, 64, 0.12)"
-                                vertical={false}
-                              />
+                              <CartesianGrid stroke="rgba(122, 97, 64, 0.12)" vertical={false} />
                               <XAxis
                                 axisLine={false}
                                 dataKey="code"
@@ -600,9 +550,9 @@ function DashboardPage() {
                                 type="category"
                                 interval={0}
                                 style={{
+                                  fill: "#6f5944",
                                   fontSize: "11px",
                                   fontWeight: 500,
-                                  fill: "#6f5944",
                                 }}
                               />
                               <YAxis
@@ -612,15 +562,13 @@ function DashboardPage() {
                                 tickLine={false}
                                 ticks={[0, 25, 50, 75, 100]}
                                 tickFormatter={(v) =>
-                                  Number(v).toFixed(0) === "100"
-                                    ? "100%"
-                                    : `${v}%`
+                                  Number(v).toFixed(0) === "100" ? "100%" : `${v}%`
                                 }
                                 type="number"
                                 style={{
+                                  fill: "#6f5944",
                                   fontSize: "11px",
                                   fontWeight: 500,
-                                  fill: "#6f5944",
                                 }}
                               />
                               <Tooltip content={<PartyTooltip />} />
@@ -669,15 +617,8 @@ function DashboardPage() {
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={trendChartData}>
-                          <CartesianGrid
-                            stroke="rgba(122, 97, 64, 0.12)"
-                            vertical={false}
-                          />
-                          <XAxis
-                            axisLine={false}
-                            dataKey="label"
-                            tickLine={false}
-                          />
+                          <CartesianGrid stroke="rgba(122, 97, 64, 0.12)" vertical={false} />
+                          <XAxis axisLine={false} dataKey="label" tickLine={false} />
                           <YAxis
                             axisLine={false}
                             domain={trendYDomain}
@@ -701,7 +642,7 @@ function DashboardPage() {
                     </div>
                     <div className="mt-5 flex flex-wrap gap-2">
                       {allTrendLines.map((series, index) => {
-                        const isHidden = hiddenTrendSeries.has(series.key)
+                        const isHidden = hiddenTrendSeries.has(series.key);
                         return (
                           <button
                             key={series.key}
@@ -721,11 +662,9 @@ function DashboardPage() {
                                   : PARTY_COLORS[index % PARTY_COLORS.length],
                               }}
                             />
-                            <span className={isHidden ? "line-through" : ""}>
-                              {series.label}
-                            </span>
+                            <span className={isHidden ? "line-through" : ""}>{series.label}</span>
                           </button>
-                        )
+                        );
                       })}
                     </div>
                   </Panel>
@@ -741,9 +680,7 @@ function DashboardPage() {
                         <span className="eyebrow">Buscar nombre</span>
                         <input
                           className="h-11 min-w-0 rounded-2xl border border-border/80 bg-background/80 px-4 text-sm text-foreground outline-none placeholder:text-muted-foreground sm:min-w-72"
-                          onChange={(event) =>
-                            setLegislatorSearch(event.target.value)
-                          }
+                          onChange={(event) => setLegislatorSearch(event.target.value)}
                           placeholder="Ej. Ramirez, Batres, Monreal"
                           value={legislatorSearch}
                         />
@@ -753,9 +690,7 @@ function DashboardPage() {
                         <select
                           className="h-11 min-w-0 rounded-2xl border border-border/80 bg-background/80 px-4 text-sm text-foreground sm:min-w-72"
                           onChange={(event) =>
-                            setLegislatorSort(
-                              event.target.value as typeof legislatorSort
-                            )
+                            setLegislatorSort(event.target.value as typeof legislatorSort)
                           }
                           value={legislatorSort}
                         >
@@ -784,27 +719,29 @@ function DashboardPage() {
         </SwappableContent>
       </div>
     </main>
-  )
+  );
 }
 
 function TrendTooltip(props: {
-  active?: boolean
-  label?: string
-  payload?: Array<{
-    color?: string
-    dataKey?: string | number
-    name?: string
-    value?: number | string
-    payload?: { sessionCount?: number }
-  }>
+  active?: boolean;
+  label?: string;
+  payload?: {
+    color?: string;
+    dataKey?: string | number;
+    name?: string;
+    value?: number | string;
+    payload?: { sessionCount?: number };
+  }[];
 }) {
-  const active = props.active
-  const label = props.label
-  const payload = props.payload
+  const { active } = props;
+  const { label } = props;
+  const { payload } = props;
 
-  if (!active || !payload?.length) return null
+  if (!active || !payload?.length) {
+    return null;
+  }
 
-  const sessionCount = Number(payload[0]?.payload?.sessionCount ?? 1)
+  const sessionCount = Number(payload[0]?.payload?.sessionCount ?? 1);
 
   return (
     <div className="rounded-2xl border border-border bg-card px-3 py-2 text-sm shadow-lg">
@@ -814,15 +751,9 @@ function TrendTooltip(props: {
       </p>
       <div className="mt-2 space-y-1">
         {payload.map((entry) => (
-          <div
-            key={String(entry.dataKey)}
-            className="flex items-center justify-between gap-4"
-          >
+          <div key={String(entry.dataKey)} className="flex items-center justify-between gap-4">
             <span className="flex items-center gap-2 text-muted-foreground">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: entry.color }}
-              />
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
               {entry.name ?? entry.dataKey}
             </span>
             <span className="font-medium text-foreground">{entry.value}%</span>
@@ -830,45 +761,39 @@ function TrendTooltip(props: {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 function PartyTooltip(props: {
-  active?: boolean
-  label?: string
-  payload?: Array<{
-    color?: string
-    dataKey?: string | number
-    name?: string
-    value?: number | string
-    payload?: { totalVisible?: number }
-  }>
+  active?: boolean;
+  label?: string;
+  payload?: {
+    color?: string;
+    dataKey?: string | number;
+    name?: string;
+    value?: number | string;
+    payload?: { totalVisible?: number };
+  }[];
 }) {
-  const active = props.active
-  const label = props.label
-  const payload = props.payload
+  const { active } = props;
+  const { label } = props;
+  const { payload } = props;
 
-  if (!active || !payload?.length) return null
+  if (!active || !payload?.length) {
+    return null;
+  }
 
-  const totalVisible = Number(payload[0]?.payload?.totalVisible ?? 0)
+  const totalVisible = Number(payload[0]?.payload?.totalVisible ?? 0);
 
   return (
     <div className="rounded-2xl border border-border bg-card px-3 py-2 text-sm shadow-lg">
       <p className="font-medium text-foreground">{label}</p>
-      <p className="text-xs text-muted-foreground">
-        Total visible: {totalVisible.toFixed(1)}%
-      </p>
+      <p className="text-xs text-muted-foreground">Total visible: {totalVisible.toFixed(1)}%</p>
       <div className="mt-2 space-y-1">
         {payload.map((entry) => (
-          <div
-            key={String(entry.dataKey)}
-            className="flex items-center justify-between gap-4"
-          >
+          <div key={String(entry.dataKey)} className="flex items-center justify-between gap-4">
             <span className="flex items-center gap-2 text-muted-foreground">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: entry.color }}
-              />
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
               {entry.name ?? entry.dataKey}
             </span>
             <span className="font-medium text-foreground">
@@ -878,7 +803,7 @@ function PartyTooltip(props: {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 function MetricCard({
@@ -889,34 +814,26 @@ function MetricCard({
   tone = "default",
   children,
 }: {
-  eyebrow: string
-  title: string
-  subtitle: string
-  detail: string
-  tone?: "default" | "primary"
-  children: React.ReactNode
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  detail: string;
+  tone?: "default" | "primary";
+  children: React.ReactNode;
 }) {
   return (
     <article
       className={`rounded-[2rem] border p-5 sm:p-6 ${
-        tone === "primary"
-          ? "surface-panel border-border/75"
-          : "surface-soft border-border/70"
+        tone === "primary" ? "surface-panel border-border/75" : "surface-soft border-border/70"
       }`}
     >
       <p className="eyebrow">{eyebrow}</p>
       <p className="mt-4 text-sm font-medium text-muted-foreground">{detail}</p>
-      <h2 className="mt-6 font-heading text-5xl leading-none text-foreground">
-        {title}
-      </h2>
-      <p className="mt-3 text-base font-medium text-foreground/82">
-        {subtitle}
-      </p>
-      <p className="mt-4 max-w-[34ch] text-sm leading-6 text-muted-foreground">
-        {children}
-      </p>
+      <h2 className="mt-6 font-heading text-5xl leading-none text-foreground">{title}</h2>
+      <p className="mt-3 text-base font-medium text-foreground/82">{subtitle}</p>
+      <p className="mt-4 max-w-[34ch] text-sm leading-6 text-muted-foreground">{children}</p>
     </article>
-  )
+  );
 }
 
 function Panel({
@@ -928,13 +845,13 @@ function Panel({
   className,
   bodyClassName,
 }: {
-  title: string
-  description: string
-  headerRight?: React.ReactNode
-  children: React.ReactNode
-  variant?: "default" | "editorial" | "flat"
-  className?: string
-  bodyClassName?: string
+  title: string;
+  description: string;
+  headerRight?: React.ReactNode;
+  children: React.ReactNode;
+  variant?: "default" | "editorial" | "flat";
+  className?: string;
+  bodyClassName?: string;
 }) {
   return (
     <section
@@ -949,48 +866,32 @@ function Panel({
       <div className="mb-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <h2 className="font-heading text-2xl text-foreground">{title}</h2>
-          {headerRight ? (
-            <div className="sm:shrink-0">{headerRight}</div>
-          ) : null}
+          {headerRight ? <div className="sm:shrink-0">{headerRight}</div> : null}
         </div>
-        <p className="mt-3 max-w-none text-sm leading-6 text-muted-foreground">
-          {description}
-        </p>
+        <p className="mt-3 max-w-none text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
       <div className={bodyClassName}>{children}</div>
     </section>
-  )
+  );
 }
 
 function LegendChip({ color, label }: { color: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-2 text-muted-foreground">
-      <span
-        aria-hidden
-        className="h-3 w-3 rounded-sm"
-        style={{ backgroundColor: color }}
-      />
+      <span aria-hidden className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} />
       <span>{label}</span>
     </span>
-  )
+  );
 }
 
-function MiniNote({
-  label,
-  value,
-  detail,
-}: {
-  label: string
-  value: string
-  detail: string
-}) {
+function MiniNote({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
     <article className="rounded-[1.4rem] border border-border/70 bg-background/72 p-4">
       <p className="eyebrow">{label}</p>
       <p className="mt-3 text-lg font-semibold text-foreground">{value}</p>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{detail}</p>
     </article>
-  )
+  );
 }
 
 function LoadingPanel({ label }: { label: string }) {
@@ -1004,20 +905,18 @@ function LoadingPanel({ label }: { label: string }) {
         <div className="h-10 w-10 animate-spin rounded-full border border-border/70 border-t-primary" />
       </div>
     </section>
-  )
+  );
 }
 
 function EmptyPanelMessage() {
   return (
     <div className="flex h-80 items-center justify-center text-muted-foreground">
       <div className="max-w-xs text-center">
-        <p className="text-sm font-medium text-foreground/75">
-          No hay datos disponibles
-        </p>
+        <p className="text-sm font-medium text-foreground/75">No hay datos disponibles</p>
         <p className="mt-2 text-xs leading-5">
           Selecciona un periodo importado para comparar participacion por grupo.
         </p>
       </div>
     </div>
-  )
+  );
 }

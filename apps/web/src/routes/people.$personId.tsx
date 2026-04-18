@@ -1,55 +1,45 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { useEffect, useMemo, useState } from "react"
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 
-import {
-  api,
-  type LegislatorAttendanceRow,
-  type LegislatorSummary,
-  type LegislatorTrend,
-} from "../lib/api"
-import {
-  FadeIn,
-  StaggerItem,
-  StaggerList,
-  SwappableContent,
-} from "../components/reveal"
+import { api } from "../lib/api";
+import type { LegislatorAttendanceRow, LegislatorSummary, LegislatorTrend } from "../lib/api";
+import { FadeIn, StaggerItem, StaggerList, SwappableContent } from "../components/reveal";
 import {
   formatCompactDate,
   formatDate,
   formatInteger,
   formatSessionType,
   formatStatusLabel,
-} from "../lib/format"
+} from "../lib/format";
 
-type DetailSearch = {
-  legislature?: string
-  periodId?: string
+interface DetailSearch {
+  legislature?: string;
+  periodId?: string;
 }
 
 export const Route = createFileRoute("/people/$personId")({
+  component: PersonDetailPage,
   validateSearch: (search): DetailSearch => ({
-    legislature:
-      typeof search.legislature === "string" ? search.legislature : undefined,
+    legislature: typeof search.legislature === "string" ? search.legislature : undefined,
     periodId: typeof search.periodId === "string" ? search.periodId : undefined,
   }),
-  component: PersonDetailPage,
-})
+});
 
 function PersonDetailPage() {
-  const { personId } = Route.useParams()
-  const search = Route.useSearch()
-  const [summary, setSummary] = useState<LegislatorSummary | null>(null)
-  const [attendance, setAttendance] = useState<LegislatorAttendanceRow[]>([])
-  const [trend, setTrend] = useState<LegislatorTrend | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { personId } = Route.useParams();
+  const search = Route.useSearch();
+  const [summary, setSummary] = useState<LegislatorSummary | null>(null);
+  const [attendance, setAttendance] = useState<LegislatorAttendanceRow[]>([]);
+  const [trend, setTrend] = useState<LegislatorTrend | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
 
     async function loadPerson() {
-      setIsLoading(true)
-      setError(null)
+      setIsLoading(true);
+      setError(null);
 
       try {
         const [nextSummary, nextAttendance, nextTrend] = await Promise.all([
@@ -63,54 +53,54 @@ function PersonDetailPage() {
             legislature: search.legislature,
             periodId: search.periodId,
           }),
-        ])
+        ]);
 
-        if (cancelled) return
+        if (cancelled) {
+          return;
+        }
 
-        setSummary(nextSummary)
-        setAttendance(nextAttendance)
-        setTrend(nextTrend)
+        setSummary(nextSummary);
+        setAttendance(nextAttendance);
+        setTrend(nextTrend);
       } catch (caughtError) {
         if (!cancelled) {
           setError(
             caughtError instanceof Error
               ? caughtError.message
-              : "No se pudo cargar la ficha de la persona."
-          )
+              : "No se pudo cargar la ficha de la persona.",
+          );
         }
       } finally {
         if (!cancelled) {
-          setIsLoading(false)
+          setIsLoading(false);
         }
       }
     }
 
-    void loadPerson()
+    void loadPerson();
 
     return () => {
-      cancelled = true
-    }
-  }, [personId, search.legislature, search.periodId])
+      cancelled = true;
+    };
+  }, [personId, search.legislature, search.periodId]);
 
   const trendCells = useMemo(() => {
-    const attendanceBySessionId = new Map(
-      attendance.map((row) => [row.sessionId, row])
-    )
+    const attendanceBySessionId = new Map(attendance.map((row) => [row.sessionId, row]));
 
     return (trend?.points ?? []).map((point) => {
-      const session = attendanceBySessionId.get(point.sessionId)
+      const session = attendanceBySessionId.get(point.sessionId);
 
       return {
-        sessionId: point.sessionId,
         date: point.sessionDate,
         label: formatCompactDate(point.sessionDate),
-        status: point.status,
-        title: session?.title ?? point.title,
+        sessionId: point.sessionId,
         sessionPageUrl: session?.sessionPageUrl ?? null,
         sessionType: session?.sessionType ?? point.sessionType,
-      }
-    })
-  }, [attendance, trend])
+        status: point.status,
+        title: session?.title ?? point.title,
+      };
+    });
+  }, [attendance, trend]);
 
   return (
     <main className="min-h-svh bg-background">
@@ -182,9 +172,7 @@ function PersonDetailPage() {
                               params={{ personId: summary.personId }}
                               search={{
                                 legislature: item.legislature,
-                                periodId: item.isCurrent
-                                  ? search.periodId
-                                  : undefined,
+                                periodId: item.isCurrent ? search.periodId : undefined,
                               }}
                               to="/people/$personId"
                             >
@@ -220,18 +208,12 @@ function PersonDetailPage() {
                       </div>
 
                       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <InfoStat
-                          label="Cédula"
-                          value={formatInteger(summary.cedulaCount)}
-                        />
+                        <InfoStat label="Cédula" value={formatInteger(summary.cedulaCount)} />
                         <InfoStat
                           label="Comisión"
                           value={formatInteger(summary.officialCommissionCount)}
                         />
-                        <InfoStat
-                          label="Licencia"
-                          value={formatInteger(summary.boardLeaveCount)}
-                        />
+                        <InfoStat label="Licencia" value={formatInteger(summary.boardLeaveCount)} />
                         <InfoStat
                           label="Sin voto"
                           value={formatInteger(summary.notPresentInVotesCount)}
@@ -239,9 +221,8 @@ function PersonDetailPage() {
                       </div>
 
                       <p className="mt-5 max-w-3xl text-sm leading-6 text-muted-foreground">
-                        El total de sesiones puede incluir cédula, comisión
-                        oficial, licencia de mesa directiva o no presencia en
-                        votaciones.
+                        El total de sesiones puede incluir cédula, comisión oficial, licencia de
+                        mesa directiva o no presencia en votaciones.
                       </p>
                     </div>
                   </div>
@@ -251,9 +232,7 @@ function PersonDetailPage() {
               <StaggerItem>
                 <section className="grid gap-6 lg:grid-cols-[0.95fr_1.15fr]">
                   <section className="surface-soft rounded-[2rem] border border-border/75 p-6">
-                    <h2 className="font-heading text-2xl text-foreground">
-                      Asistencia por sesión
-                    </h2>
+                    <h2 className="font-heading text-2xl text-foreground">Asistencia por sesión</h2>
                     <p className="mt-2 text-sm text-muted-foreground">
                       Cada cuadro representa una sesión en orden cronológico.
                     </p>
@@ -286,12 +265,9 @@ function PersonDetailPage() {
                   </section>
 
                   <section className="rounded-[2rem] border border-border/75 bg-card/80 p-6">
-                    <h2 className="font-heading text-2xl text-foreground">
-                      Historial
-                    </h2>
+                    <h2 className="font-heading text-2xl text-foreground">Historial</h2>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Registro por sesión con el estatus normalizado del PDF
-                      oficial.
+                      Registro por sesión con el estatus normalizado del PDF oficial.
                     </p>
 
                     <div className="mt-5 max-h-[28rem] overflow-auto rounded-[1.6rem] border border-border/70">
@@ -310,9 +286,7 @@ function PersonDetailPage() {
                               key={row.attendanceRecordId}
                             >
                               <td className="px-4 py-3">
-                                <p className="font-semibold">
-                                  {formatDate(row.sessionDate)}
-                                </p>
+                                <p className="font-semibold">{formatDate(row.sessionDate)}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {formatSessionType(row.sessionType)}
                                 </p>
@@ -348,7 +322,7 @@ function PersonDetailPage() {
         </SwappableContent>
       </div>
     </main>
-  )
+  );
 }
 
 function InfoStat({ label, value }: { label: string; value: string }) {
@@ -357,14 +331,20 @@ function InfoStat({ label, value }: { label: string; value: string }) {
       <p className="eyebrow">{label}</p>
       <p className="mt-3 font-heading text-3xl text-foreground">{value}</p>
     </article>
-  )
+  );
 }
 
 function statusClassName(status: string) {
-  if (status === "attendance") return "bg-emerald-100 text-emerald-800"
-  if (status === "justified_absence") return "bg-amber-100 text-amber-900"
-  if (status === "absence") return "bg-rose-100 text-rose-900"
-  return "bg-slate-200 text-slate-800"
+  if (status === "attendance") {
+    return "bg-emerald-100 text-emerald-800";
+  }
+  if (status === "justified_absence") {
+    return "bg-amber-100 text-amber-900";
+  }
+  if (status === "absence") {
+    return "bg-rose-100 text-rose-900";
+  }
+  return "bg-slate-200 text-slate-800";
 }
 
 function cellClassName(status: string) {
@@ -374,11 +354,15 @@ function cellClassName(status: string) {
     status === "official_commission" ||
     status === "board_leave"
   ) {
-    return "bg-emerald-500"
+    return "bg-emerald-500";
   }
-  if (status === "justified_absence") return "bg-amber-400"
-  if (status === "absence") return "bg-rose-500"
-  return "bg-slate-300"
+  if (status === "justified_absence") {
+    return "bg-amber-400";
+  }
+  if (status === "absence") {
+    return "bg-rose-500";
+  }
+  return "bg-slate-300";
 }
 
 function LegendDot({ color, label }: { color: string; label: string }) {
@@ -387,7 +371,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
       <span className={`h-3 w-3 rounded-sm ${color}`} aria-hidden />
       <span>{label}</span>
     </span>
-  )
+  );
 }
 
 function SessionTrendCell({
@@ -397,11 +381,11 @@ function SessionTrendCell({
   status,
   title,
 }: {
-  label: string
-  sessionPageUrl: string | null
-  sessionType: string
-  status: string
-  title: string
+  label: string;
+  sessionPageUrl: string | null;
+  sessionType: string;
+  status: string;
+  title: string;
 }) {
   const content = (
     <>
@@ -415,13 +399,11 @@ function SessionTrendCell({
         </span>
         <span className="mt-1 block text-muted-foreground">{title}</span>
         {sessionPageUrl ? (
-          <span className="mt-2 block font-semibold text-foreground">
-            Abrir fuente oficial
-          </span>
+          <span className="mt-2 block font-semibold text-foreground">Abrir fuente oficial</span>
         ) : null}
       </span>
     </>
-  )
+  );
 
   if (sessionPageUrl) {
     return (
@@ -433,8 +415,8 @@ function SessionTrendCell({
       >
         {content}
       </a>
-    )
+    );
   }
 
-  return <span className="group relative inline-flex">{content}</span>
+  return <span className="group relative inline-flex">{content}</span>;
 }

@@ -1,6 +1,6 @@
-import { sql } from "drizzle-orm"
+import { sql } from "drizzle-orm";
 
-import { db } from "../src/db"
+import { db } from "../src/db";
 
 const result = await db.execute(sql`
   WITH updated AS (
@@ -43,11 +43,10 @@ const result = await db.execute(sql`
     RETURNING s.id, s.session_type
   )
   SELECT count(*)::int AS updated_count FROM updated;
-`)
+`);
 
 const updatedCount = Number(
-  (result as { rows?: Array<{ updated_count?: number | string }> }).rows?.[0]
-    ?.updated_count ?? 0
-)
+  (result as { rows?: { updated_count?: number | string }[] }).rows?.[0]?.updated_count ?? 0,
+);
 
-console.log(JSON.stringify({ updatedCount }, null, 2))
+console.log(JSON.stringify({ updatedCount }, null, 2));

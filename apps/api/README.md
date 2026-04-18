@@ -61,6 +61,7 @@ bun run dev
 ## Endpoints
 
 Public:
+
 - `GET /health`
 - `GET /api/periods`
 - `GET /api/sessions`
@@ -79,9 +80,11 @@ Public:
 - `GET /api/analytics/session-quality`
 
 Authenticated:
+
 - `GET /api/session`
 
 Admin only:
+
 - `POST /api/crawl/discover`
 - `POST /api/crawl/snapshot-session-document`
 - `POST /api/crawl/extract-session-document`
@@ -93,6 +96,7 @@ Admin only:
 - `POST /api/documents/:id/snapshot`
 
 Auth:
+
 - `GET|POST /api/auth/*`
 
 ## Notes

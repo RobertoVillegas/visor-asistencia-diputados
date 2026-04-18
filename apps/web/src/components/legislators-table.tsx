@@ -3,19 +3,19 @@ import {
   getCoreRowModel,
   getPaginationRowModel,
   useReactTable,
-  type ColumnDef,
-} from "@tanstack/react-table"
-import { Link } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+} from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 
-import type { LegislatorAnalyticsRow } from "../lib/api"
-import { formatInteger, formatPercent } from "../lib/format"
+import type { LegislatorAnalyticsRow } from "../lib/api";
+import { formatInteger, formatPercent } from "../lib/format";
 
-type LegislatorsTableProps = {
-  legislators: LegislatorAnalyticsRow[]
-  legislature?: string
-  loading?: boolean
-  periodId?: string
+interface LegislatorsTableProps {
+  legislators: LegislatorAnalyticsRow[];
+  legislature?: string;
+  loading?: boolean;
+  periodId?: string;
 }
 
 export function LegislatorsTable({
@@ -27,13 +27,12 @@ export function LegislatorsTable({
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 15,
-  })
+  });
 
   const columns = useMemo<ColumnDef<LegislatorAnalyticsRow>[]>(
     () => [
       {
         accessorKey: "fullName",
-        header: "Diputada o diputado",
         cell: ({ row }) => (
           <div className="flex min-w-0 items-center gap-3">
             {row.original.imageUrl ? (
@@ -62,46 +61,43 @@ export function LegislatorsTable({
             </div>
           </div>
         ),
+        header: "Diputada o diputado",
       },
       {
         accessorKey: "sessionsMentioned",
-        header: "Sesiones",
         cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatInteger(row.original.sessionsMentioned)}
-          </span>
+          <span className="tabular-nums">{formatInteger(row.original.sessionsMentioned)}</span>
         ),
+        header: "Sesiones",
       },
       {
         accessorKey: "attendanceCount",
-        header: "Asist.",
         cell: ({ row }) => (
           <span className="text-emerald-700 tabular-nums">
             {formatInteger(row.original.attendanceCount)}
           </span>
         ),
+        header: "Asist.",
       },
       {
         accessorKey: "justifiedAbsenceCount",
-        header: "Justif.",
         cell: ({ row }) => (
           <span className="text-amber-600 tabular-nums">
             {formatInteger(row.original.justifiedAbsenceCount)}
           </span>
         ),
+        header: "Justif.",
       },
       {
         accessorKey: "absenceCount",
-        header: "Inasist.",
         cell: ({ row }) => (
           <span className="text-rose-600 tabular-nums">
             {formatInteger(row.original.absenceCount)}
           </span>
         ),
+        header: "Inasist.",
       },
       {
-        id: "participacion",
-        header: "Participación",
         cell: ({ row }) => {
           const participacionRatio =
             row.original.sessionsMentioned > 0
@@ -109,7 +105,7 @@ export function LegislatorsTable({
                   row.original.cedulaCount +
                   row.original.officialCommissionCount) /
                 row.original.sessionsMentioned
-              : 0
+              : 0;
           return (
             <div className="flex items-center gap-3">
               <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
@@ -122,23 +118,25 @@ export function LegislatorsTable({
                 {formatPercent(participacionRatio)}
               </span>
             </div>
-          )
+          );
         },
+        header: "Participación",
+        id: "participacion",
       },
     ],
-    [legislature, periodId]
-  )
+    [legislature, periodId],
+  );
 
   const table = useReactTable({
-    data: legislators,
     columns,
+    data: legislators,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,
     state: {
       pagination,
     },
-  })
+  });
 
   return (
     <div className="overflow-hidden rounded-[1.8rem] border border-border/75 bg-card/60">
@@ -156,10 +154,7 @@ export function LegislatorsTable({
                   <th className="px-4 py-4 font-medium" key={header.id}>
                     {header.isPlaceholder
                       ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                      : flexRender(header.column.columnDef.header, header.getContext())}
                   </th>
                 ))}
               </tr>
@@ -205,14 +200,18 @@ export function LegislatorsTable({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function getInitials(fullName: string) {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
 
-  if (parts.length === 0) return "?"
-  if (parts.length === 1) return parts[0].slice(0, 2)
+  if (parts.length === 0) {
+    return "?";
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2);
+  }
 
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`;
 }

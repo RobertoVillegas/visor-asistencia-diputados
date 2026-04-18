@@ -1,34 +1,43 @@
 import { normalizeName } from "./parser";
 
-export type ParsedAbsenceRecord = {
+export interface ParsedAbsenceRecord {
   rowNumber: number;
   pageNumber: number;
   rawName: string;
   normalizedName: string;
   groupName: string;
   groupCode: string;
-};
+}
 
-export type ParsedAbsenceGroupSummary = {
+export interface ParsedAbsenceGroupSummary {
   groupName: string;
   groupCode: string;
   absenceCount: number;
-};
+}
 
-export type ParsedAbsenceDocument = {
+export interface ParsedAbsenceDocument {
   records: ParsedAbsenceRecord[];
   summaries: ParsedAbsenceGroupSummary[];
-};
+}
 
 const headerLinePattern =
   /^(SECRETARIA GENERAL|REPORTE DE INASISTENCIAS|SESI[ÓO]N|Primer Periodo|Segundo Periodo|Tercer Periodo|Comisi[óo]n Permanente|lunes,|martes,|mi[ée]rcoles,|jueves,|viernes,|s[áa]bado,|domingo,|Diputado|P[áa]gina \d+|\*\* No presente en votaciones|\d+Faltas por grupo:)/i;
 
 const groupCodeMap = new Map<string, { code: string; name: string }>([
-  ["movimiento regeneracion nacional", { code: "MORENA", name: "Movimiento Regeneración Nacional" }],
+  [
+    "movimiento regeneracion nacional",
+    { code: "MORENA", name: "Movimiento Regeneración Nacional" },
+  ],
   ["partido accion nacional", { code: "PAN", name: "Partido Acción Nacional" }],
-  ["partido verde ecologista de mexico", { code: "PVEM", name: "Partido Verde Ecologista de México" }],
+  [
+    "partido verde ecologista de mexico",
+    { code: "PVEM", name: "Partido Verde Ecologista de México" },
+  ],
   ["partido del trabajo", { code: "PT", name: "Partido del Trabajo" }],
-  ["partido revolucionario institucional", { code: "PRI", name: "Partido Revolucionario Institucional" }],
+  [
+    "partido revolucionario institucional",
+    { code: "PRI", name: "Partido Revolucionario Institucional" },
+  ],
   ["movimiento ciudadano", { code: "MC", name: "Movimiento Ciudadano" }],
   ["independiente", { code: "IND", name: "Independiente" }],
   ["independientes", { code: "IND", name: "Independiente" }],
@@ -45,11 +54,13 @@ function isHeaderLine(line: string): boolean {
 
 function parseRecordLine(line: string) {
   const rowMatch = line.match(/^(\d+)\s+(.+)$/);
-  if (!rowMatch) return null;
+  if (!rowMatch) {
+    return null;
+  }
 
   return {
-    rowNumber: Number(rowMatch[1]),
     rawName: rowMatch[2].trim(),
+    rowNumber: Number(rowMatch[1]),
   };
 }
 
@@ -64,18 +75,20 @@ export function parseAbsencePages(pages: string[]): ParsedAbsenceDocument {
       .filter(Boolean);
 
     for (const line of lines) {
-      if (isHeaderLine(line)) continue;
+      if (isHeaderLine(line)) {
+        continue;
+      }
 
       const record = parseRecordLine(line);
       if (record) {
         const group = mapGroup(currentGroupName || "Desconocido");
         records.push({
-          rowNumber: record.rowNumber,
+          groupCode: group.code,
+          groupName: group.name,
+          normalizedName: normalizeName(record.rawName),
           pageNumber: pageIndex + 1,
           rawName: record.rawName,
-          normalizedName: normalizeName(record.rawName),
-          groupName: group.name,
-          groupCode: group.code,
+          rowNumber: record.rowNumber,
         });
         continue;
       }
@@ -87,12 +100,11 @@ export function parseAbsencePages(pages: string[]): ParsedAbsenceDocument {
   const grouped = new Map<string, ParsedAbsenceGroupSummary>();
 
   for (const record of records) {
-    const existing =
-      grouped.get(record.groupCode) ?? {
-        groupName: record.groupName,
-        groupCode: record.groupCode,
-        absenceCount: 0,
-      };
+    const existing = grouped.get(record.groupCode) ?? {
+      absenceCount: 0,
+      groupCode: record.groupCode,
+      groupName: record.groupName,
+    };
 
     existing.absenceCount += 1;
     grouped.set(record.groupCode, existing);
@@ -100,6 +112,6 @@ export function parseAbsencePages(pages: string[]): ParsedAbsenceDocument {
 
   return {
     records,
-    summaries: [...grouped.values()].sort((a, b) => a.groupCode.localeCompare(b.groupCode)),
+    summaries: [...grouped.values()].toSorted((a, b) => a.groupCode.localeCompare(b.groupCode)),
   };
 }

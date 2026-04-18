@@ -1,12 +1,12 @@
 import { extractPdfTextFromBytes, fetchPdfFromUrl } from "../src/modules/pdf/extractor";
 import { parseAbsencePages } from "../src/modules/attendance/absence-parser";
 
-type ExpectedRecord = {
+interface ExpectedRecord {
   name: string;
   groupCode: string;
-};
+}
 
-type Fixture = {
+interface Fixture {
   label: string;
   url: string;
   expectedPageCount: number;
@@ -14,52 +14,52 @@ type Fixture = {
   expectedGroupCount: number;
   expectedAbsenceCounts: Record<string, number>;
   expectedRecords: ExpectedRecord[];
-};
+}
 
 const fixtures: Fixture[] = [
   {
-    label: "2025-12-10 inasistencias",
-    url: "https://gaceta.diputados.gob.mx/PDF/66/2025/dic/20251210-Inasistencias.pdf",
-    expectedPageCount: 2,
-    expectedRecordCount: 7,
-    expectedGroupCount: 2,
     expectedAbsenceCounts: {
       MORENA: 5,
       PAN: 2,
     },
+    expectedGroupCount: 2,
+    expectedPageCount: 2,
+    expectedRecordCount: 7,
     expectedRecords: [
-      { name: "P. Ángeles Moreno Tatiana Tonantzin", groupCode: "MORENA" },
-      { name: "Ramírez Cuéllar Alfonso", groupCode: "MORENA" },
-      { name: "Borboa Becerra Omar Antonio", groupCode: "PAN" },
+      { groupCode: "MORENA", name: "P. Ángeles Moreno Tatiana Tonantzin" },
+      { groupCode: "MORENA", name: "Ramírez Cuéllar Alfonso" },
+      { groupCode: "PAN", name: "Borboa Becerra Omar Antonio" },
     ],
+    label: "2025-12-10 inasistencias",
+    url: "https://gaceta.diputados.gob.mx/PDF/66/2025/dic/20251210-Inasistencias.pdf",
   },
   {
-    label: "2025-09-09 inasistencias SOM",
-    url: "https://gaceta.diputados.gob.mx/PDF/66/2025/sep/20250909-Inasistencias_SOM.pdf",
-    expectedPageCount: 1,
-    expectedRecordCount: 1,
-    expectedGroupCount: 1,
     expectedAbsenceCounts: {
       PAN: 1,
     },
-    expectedRecords: [{ name: "Gamboa Torales María Josefina", groupCode: "PAN" }],
+    expectedGroupCount: 1,
+    expectedPageCount: 1,
+    expectedRecordCount: 1,
+    expectedRecords: [{ groupCode: "PAN", name: "Gamboa Torales María Josefina" }],
+    label: "2025-09-09 inasistencias SOM",
+    url: "https://gaceta.diputados.gob.mx/PDF/66/2025/sep/20250909-Inasistencias_SOM.pdf",
   },
   {
-    label: "2025-09-18 inasistencias SS",
-    url: "https://gaceta.diputados.gob.mx/PDF/66/2025/sep/20250918-Inasistencias_SS.pdf",
-    expectedPageCount: 3,
-    expectedRecordCount: 8,
-    expectedGroupCount: 3,
     expectedAbsenceCounts: {
       MORENA: 4,
       PAN: 2,
       PVEM: 2,
     },
+    expectedGroupCount: 3,
+    expectedPageCount: 3,
+    expectedRecordCount: 8,
     expectedRecords: [
-      { name: "Ávila Anaya Francisco Arturo Federico", groupCode: "MORENA" },
-      { name: "Kalionchiz de la Fuente Theodoros", groupCode: "PAN" },
-      { name: "Valladares Eichelmann Juan Carlos", groupCode: "PVEM" },
+      { groupCode: "MORENA", name: "Ávila Anaya Francisco Arturo Federico" },
+      { groupCode: "PAN", name: "Kalionchiz de la Fuente Theodoros" },
+      { groupCode: "PVEM", name: "Valladares Eichelmann Juan Carlos" },
     ],
+    label: "2025-09-18 inasistencias SS",
+    url: "https://gaceta.diputados.gob.mx/PDF/66/2025/sep/20250918-Inasistencias_SS.pdf",
   },
 ];
 
@@ -84,11 +84,15 @@ async function verifyFixture(fixture: Fixture) {
   }
 
   if (parsed.records.length !== fixture.expectedRecordCount) {
-    errors.push(`Expected recordCount=${fixture.expectedRecordCount}, got ${parsed.records.length}`);
+    errors.push(
+      `Expected recordCount=${fixture.expectedRecordCount}, got ${parsed.records.length}`,
+    );
   }
 
   if (parsed.summaries.length !== fixture.expectedGroupCount) {
-    errors.push(`Expected groupCount=${fixture.expectedGroupCount}, got ${parsed.summaries.length}`);
+    errors.push(
+      `Expected groupCount=${fixture.expectedGroupCount}, got ${parsed.summaries.length}`,
+    );
   }
 
   const distinctNames = new Set(parsed.records.map((record) => record.normalizedName));
@@ -105,11 +109,15 @@ async function verifyFixture(fixture: Fixture) {
     );
   }
 
-  const summaryMap = new Map(parsed.summaries.map((summary) => [summary.groupCode, summary.absenceCount]));
+  const summaryMap = new Map(
+    parsed.summaries.map((summary) => [summary.groupCode, summary.absenceCount]),
+  );
   for (const [groupCode, expectedCount] of Object.entries(fixture.expectedAbsenceCounts)) {
     const actual = summaryMap.get(groupCode);
     if (actual !== expectedCount) {
-      errors.push(`Group ${groupCode} mismatch: expected ${expectedCount}, got ${actual ?? "missing"}`);
+      errors.push(
+        `Group ${groupCode} mismatch: expected ${expectedCount}, got ${actual ?? "missing"}`,
+      );
     }
   }
 
@@ -126,8 +134,15 @@ async function verifyFixture(fixture: Fixture) {
     }
   }
 
-  console.log(`Parsed ${parsed.records.length} absence records across ${parsed.summaries.length} groups.`);
-  console.table(parsed.summaries.map((summary) => ({ group: summary.groupCode, absence: summary.absenceCount })));
+  console.log(
+    `Parsed ${parsed.records.length} absence records across ${parsed.summaries.length} groups.`,
+  );
+  console.table(
+    parsed.summaries.map((summary) => ({
+      absence: summary.absenceCount,
+      group: summary.groupCode,
+    })),
+  );
 
   return errors;
 }

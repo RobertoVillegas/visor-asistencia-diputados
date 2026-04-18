@@ -151,12 +151,7 @@
         180deg,
         color-mix(in oklab, var(--color-background) 92%, white 8%) 0%,
         var(--color-background) 38%,
-        color-mix(
-            in oklab,
-            var(--color-background) 94%,
-            var(--color-secondary) 6%
-          )
-          100%
+        color-mix(in oklab, var(--color-background) 94%, var(--color-secondary) 6%) 100%
       );
     min-height: 100vh;
   }

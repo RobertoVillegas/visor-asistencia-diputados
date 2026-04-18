@@ -1,34 +1,34 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { useState } from "react"
+import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
 
-import appCss from "@workspace/ui/globals.css?url"
+import appCss from "@workspace/ui/globals.css?url";
 
-import { PageMotion } from "../components/reveal"
+import { PageMotion } from "../components/reveal";
 
 export const Route = createRootRoute({
   head: () => ({
+    links: [
+      {
+        href: appCss,
+        rel: "stylesheet",
+      },
+    ],
     meta: [
       {
         charSet: "utf-8",
       },
       {
-        name: "viewport",
         content: "width=device-width, initial-scale=1",
+        name: "viewport",
       },
       {
         title: "Asistencia Legislativa",
       },
     ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-    ],
   }),
   shellComponent: RootDocument,
-})
+});
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -36,12 +36,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30_000,
             refetchOnWindowFocus: false,
+            staleTime: 30_000,
           },
         },
-      })
-  )
+      }),
+  );
 
   return (
     <html lang="es-MX">
@@ -50,12 +50,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body className="min-h-svh bg-background text-foreground antialiased">
         <PageMotion>
-          <QueryClientProvider client={queryClient}>
-            {children}
-          </QueryClientProvider>
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
         </PageMotion>
         <Scripts />
       </body>
     </html>
-  )
+  );
 }

@@ -1,15 +1,8 @@
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  lte,
-  sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
 
 import { db } from "../../db";
-import { jobQueue, type jobStatusEnum, type jobTypeEnum } from "../../db/schema";
+import { jobQueue } from "../../db/schema";
+import type { jobStatusEnum, jobTypeEnum } from "../../db/schema";
 import { env } from "../../env";
 import { logger } from "../../lib/logger";
 import { processAllPeriodsPipeline, processPeriodPipeline } from "../attendance/service";
@@ -18,25 +11,25 @@ import { fetchLatestPeriod } from "../gaceta/client";
 type JobType = (typeof jobTypeEnum.enumValues)[number];
 type JobStatus = (typeof jobStatusEnum.enumValues)[number];
 
-type ProcessPeriodPayload = {
+interface ProcessPeriodPayload {
   periodId?: string;
   periodPageUrl?: string;
   forceParseAll?: boolean;
-};
+}
 
-type ProcessAllPeriodsPayload = {
+interface ProcessAllPeriodsPayload {
   legislature?: string;
   forceParseAll?: boolean;
-};
+}
 
-type EnqueueJobInput = {
+interface EnqueueJobInput {
   type: JobType;
   payload: Record<string, unknown>;
   createdByEmail?: string | null;
   runAt?: Date;
   dedupeKey?: string | null;
   priority?: number;
-};
+}
 
 let workerStarted = false;
 let workerBusy = false;
@@ -73,12 +66,12 @@ export async function enqueueJob(input: EnqueueJobInput) {
   const [job] = await db
     .insert(jobQueue)
     .values({
-      type: input.type,
-      payload: input.payload,
       createdByEmail: input.createdByEmail ?? null,
-      runAt: input.runAt ?? new Date(),
       dedupeKey: input.dedupeKey ?? null,
+      payload: input.payload,
       priority: input.priority ?? 100,
+      runAt: input.runAt ?? new Date(),
+      type: input.type,
     })
     .onConflictDoNothing({
       target: jobQueue.dedupeKey,
@@ -88,9 +81,9 @@ export async function enqueueJob(input: EnqueueJobInput) {
   if (job) {
     logger.info(
       {
+        dedupeKey: job.dedupeKey,
         jobId: job.id,
         type: job.type,
-        dedupeKey: job.dedupeKey,
       },
       "Queued background job",
     );
@@ -115,9 +108,9 @@ export async function enqueueProcessPeriodJob(
   createdByEmail?: string | null,
 ) {
   return enqueueJob({
-    type: "process_period",
-    payload,
     createdByEmail,
+    payload: payload as Record<string, unknown>,
+    type: "process_period",
   });
 }
 
@@ -127,22 +120,22 @@ export async function enqueueProcessAllPeriodsJob(
   dedupeKey?: string | null,
 ) {
   return enqueueJob({
-    type: "process_all_periods",
-    payload,
     createdByEmail,
     dedupeKey,
+    payload: payload as Record<string, unknown>,
+    type: "process_all_periods",
   });
 }
 
-export async function listJobs(filters?: {
-  status?: JobStatus;
-  type?: JobType;
-  limit?: number;
-}) {
+export async function listJobs(filters?: { status?: JobStatus; type?: JobType; limit?: number }) {
   const clauses = [];
 
-  if (filters?.status) clauses.push(eq(jobQueue.status, filters.status));
-  if (filters?.type) clauses.push(eq(jobQueue.type, filters.type));
+  if (filters?.status) {
+    clauses.push(eq(jobQueue.status, filters.status));
+  }
+  if (filters?.type) {
+    clauses.push(eq(jobQueue.type, filters.type));
+  }
 
   const whereClause =
     clauses.length === 0 ? undefined : clauses.length === 1 ? clauses[0] : and(...clauses);
@@ -156,16 +149,16 @@ export async function listJobs(filters?: {
 
   const [stats] = await db
     .select({
-      pending: sql<number>`count(*) filter (where ${jobQueue.status} = 'pending')::int`,
-      running: sql<number>`count(*) filter (where ${jobQueue.status} = 'running')::int`,
       completed: sql<number>`count(*) filter (where ${jobQueue.status} = 'completed')::int`,
       failed: sql<number>`count(*) filter (where ${jobQueue.status} = 'failed')::int`,
+      pending: sql<number>`count(*) filter (where ${jobQueue.status} = 'pending')::int`,
+      running: sql<number>`count(*) filter (where ${jobQueue.status} = 'running')::int`,
     })
     .from(jobQueue);
 
   return {
-    stats,
     jobs,
+    stats,
   };
 }
 
@@ -194,9 +187,9 @@ async function claimNextJob() {
   const [claimed] = await db
     .update(jobQueue)
     .set({
-      status: "running",
       attempts: job.attempts + 1,
       startedAt: new Date(),
+      status: "running",
       updatedAt: new Date(),
     })
     .where(and(eq(jobQueue.id, job.id), eq(jobQueue.status, "pending")))
@@ -209,17 +202,19 @@ async function completeJob(jobId: string, result: unknown) {
   await db
     .update(jobQueue)
     .set({
-      status: "completed",
-      result: result as Record<string, unknown>,
-      finishedAt: new Date(),
-      updatedAt: new Date(),
       errorMessage: null,
+      finishedAt: new Date(),
+      result: result as Record<string, unknown>,
+      status: "completed",
+      updatedAt: new Date(),
     })
     .where(eq(jobQueue.id, jobId));
 }
 
 async function failJob(job: Awaited<ReturnType<typeof claimNextJob>>, error: unknown) {
-  if (!job) return;
+  if (!job) {
+    return;
+  }
 
   const shouldRetry = job.attempts < job.maxAttempts;
   const status: JobStatus = shouldRetry ? "pending" : "failed";
@@ -229,25 +224,25 @@ async function failJob(job: Awaited<ReturnType<typeof claimNextJob>>, error: unk
   await db
     .update(jobQueue)
     .set({
-      status,
-      runAt: retryAt,
       errorMessage: message,
       finishedAt: shouldRetry ? null : new Date(),
-      updatedAt: new Date(),
       progress: {
-        stage: shouldRetry ? "retry_scheduled" : "failed",
         message,
+        stage: shouldRetry ? "retry_scheduled" : "failed",
       },
+      runAt: retryAt,
+      status,
+      updatedAt: new Date(),
     })
     .where(eq(jobQueue.id, job.id));
 
   logger.error(
     {
-      jobId: job.id,
-      type: job.type,
       attempts: job.attempts,
-      shouldRetry,
       error: message,
+      jobId: job.id,
+      shouldRetry,
+      type: job.type,
     },
     "Background job failed",
   );
@@ -290,7 +285,9 @@ async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
 }
 
 export async function processNextJob() {
-  if (workerBusy) return false;
+  if (workerBusy) {
+    return false;
+  }
   workerBusy = true;
 
   try {
@@ -329,8 +326,8 @@ function scheduleDailyJob() {
 
   logger.info(
     {
-      nextRunAt: nextRun.toISOString(),
       legislatureOverride: env.CRON_TARGET_LEGISLATURE ?? null,
+      nextRunAt: nextRun.toISOString(),
     },
     "Scheduled next daily crawl job",
   );
@@ -359,8 +356,8 @@ function scheduleDailyJob() {
     try {
       await enqueueProcessAllPeriodsJob(
         {
-          legislature: targetLegislature,
           forceParseAll: false,
+          legislature: targetLegislature,
         },
         "system:cron",
         getCronDedupeKey(nextRun, targetLegislature),

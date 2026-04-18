@@ -1,18 +1,15 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
-import {
-  api,
-  type ReconciliationDetails,
-  type SessionInspectionResponse,
-} from "../lib/api"
-import { authClient } from "../lib/auth-client"
-import { formatDate, formatSessionType } from "../lib/format"
+import { api } from "../lib/api";
+import type { ReconciliationDetails, SessionInspectionResponse } from "../lib/api";
+import { authClient } from "../lib/auth-client";
+import { formatDate, formatSessionType } from "../lib/format";
 
 function ReconciliationSection({
   reconciliation,
 }: {
-  reconciliation: SessionInspectionResponse["reconciliation"]
+  reconciliation: SessionInspectionResponse["reconciliation"];
 }) {
   if (!reconciliation) {
     return (
@@ -24,16 +21,15 @@ function ReconciliationSection({
           No hay datos de conciliación para esta sesión.
         </p>
       </section>
-    )
+    );
   }
 
-  const details = reconciliation.details as ReconciliationDetails | undefined
-  const matches = reconciliation.matches === "true"
-  const missing = details?.missingFromAttendance ?? []
-  const extra = details?.extraInAttendance ?? []
-  const groupDiffs = details?.groupDiffs ?? []
-  const hasDiffs =
-    missing.length > 0 || extra.length > 0 || groupDiffs.length > 0
+  const details = reconciliation.details as ReconciliationDetails | undefined;
+  const matches = reconciliation.matches === "true";
+  const missing = details?.missingFromAttendance ?? [];
+  const extra = details?.extraInAttendance ?? [];
+  const groupDiffs = details?.groupDiffs ?? [];
+  const hasDiffs = missing.length > 0 || extra.length > 0 || groupDiffs.length > 0;
 
   return (
     <section className="rounded-[2rem] border border-border bg-card p-6">
@@ -88,8 +84,7 @@ function ReconciliationSection({
                 Faltan en asistencias ({missing.length})
               </h3>
               <p className="text-xs text-rose-700">
-                Están en el PDF de inasistencias pero no en el documento de
-                asistencias
+                Están en el PDF de inasistencias pero no en el documento de asistencias
               </p>
               <ul className="mt-3 grid gap-1 sm:grid-cols-2">
                 {missing.map((name) => (
@@ -107,8 +102,7 @@ function ReconciliationSection({
                 Extra en asistencias ({extra.length})
               </h3>
               <p className="text-xs text-amber-700">
-                Están en el documento de asistencias pero no en el PDF de
-                inasistencias
+                Están en el documento de asistencias pero no en el PDF de inasistencias
               </p>
               <ul className="mt-3 grid gap-1 sm:grid-cols-2">
                 {extra.map((name) => (
@@ -122,9 +116,7 @@ function ReconciliationSection({
 
           {groupDiffs.length > 0 ? (
             <div className="rounded-2xl border border-border bg-background p-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Diferencias por grupo
-              </h3>
+              <h3 className="text-sm font-semibold text-foreground">Diferencias por grupo</h3>
               <div className="mt-3 overflow-auto rounded-xl border border-border">
                 <table className="min-w-full text-left text-sm">
                   <thead className="bg-muted/70 text-xs tracking-[0.18em] text-muted-foreground uppercase">
@@ -141,15 +133,9 @@ function ReconciliationSection({
                         className={`border-t border-border/70 ${diff.difference !== 0 ? "bg-rose-50/50" : ""}`}
                         key={diff.groupCode}
                       >
-                        <td className="px-3 py-2 font-medium">
-                          {diff.groupCode}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          {diff.attendanceCount}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          {diff.absenceCount}
-                        </td>
+                        <td className="px-3 py-2 font-medium">{diff.groupCode}</td>
+                        <td className="px-3 py-2 text-right">{diff.attendanceCount}</td>
+                        <td className="px-3 py-2 text-right">{diff.absenceCount}</td>
                         <td
                           className={`px-3 py-2 text-right font-semibold ${diff.difference !== 0 ? "text-rose-700" : "text-emerald-700"}`}
                         >
@@ -165,53 +151,51 @@ function ReconciliationSection({
           ) : null}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-muted-foreground">
-          No hay diferencias registradas.
-        </p>
+        <p className="mt-4 text-sm text-muted-foreground">No hay diferencias registradas.</p>
       )}
     </section>
-  )
+  );
 }
 
 export const Route = createFileRoute("/admin/sessions/$sessionId")({
   component: AdminSessionInspectionPage,
-})
+});
 
 function AdminSessionInspectionPage() {
-  const { sessionId } = Route.useParams()
-  const { data: sessionData, isPending } = authClient.useSession()
-  const [payload, setPayload] = useState<SessionInspectionResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { sessionId } = Route.useParams();
+  const { data: sessionData, isPending } = authClient.useSession();
+  const [payload, setPayload] = useState<SessionInspectionResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!sessionData?.session) return
+    if (!sessionData?.session) {
+      return;
+    }
 
-    let cancelled = false
+    let cancelled = false;
 
     async function load() {
       try {
-        const next = await api.getSessionInspection(sessionId)
+        const next = await api.getSessionInspection(sessionId);
         if (!cancelled) {
-          setPayload(next)
-          setError(null)
+          setPayload(next);
+          setError(null);
         }
       } catch (caughtError) {
         if (!cancelled) {
           setError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "No se pudo cargar la sesión."
-          )
+            caughtError instanceof Error ? caughtError.message : "No se pudo cargar la sesión.",
+          );
         }
       }
     }
 
-    void load()
+    void load();
 
     return () => {
-      cancelled = true
-    }
-  }, [sessionData?.session, sessionId])
+      cancelled = true;
+    };
+  }, [sessionData?.session, sessionId]);
 
   if (isPending) {
     return (
@@ -220,7 +204,7 @@ function AdminSessionInspectionPage() {
           Cargando sesión…
         </div>
       </main>
-    )
+    );
   }
 
   if (!sessionData?.session) {
@@ -230,17 +214,14 @@ function AdminSessionInspectionPage() {
           Inicia sesión en /admin para ver esta vista.
         </div>
       </main>
-    )
+    );
   }
 
   return (
     <main className="min-h-svh bg-background">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            className="text-sm font-semibold text-foreground underline"
-            to="/admin"
-          >
+          <Link className="text-sm font-semibold text-foreground underline" to="/admin">
             ← Volver a administración
           </Link>
         </div>
@@ -264,10 +245,7 @@ function AdminSessionInspectionPage() {
                 {payload.session.sessionDate
                   ? formatDate(String(payload.session.sessionDate))
                   : "Sin fecha"}{" "}
-                ·{" "}
-                {formatSessionType(
-                  String(payload.session.sessionType ?? "unknown")
-                )}
+                · {formatSessionType(String(payload.session.sessionType ?? "unknown"))}
               </p>
               <div className="mt-4 space-y-2 text-sm">
                 <p>
@@ -289,18 +267,11 @@ function AdminSessionInspectionPage() {
             </section>
 
             <section className="rounded-[2rem] border border-border bg-card p-6">
-              <h2 className="font-heading text-2xl text-foreground">
-                Documentos y snapshots
-              </h2>
+              <h2 className="font-heading text-2xl text-foreground">Documentos y snapshots</h2>
               <div className="mt-4 space-y-4">
                 {payload.documents.map((doc) => (
-                  <article
-                    className="rounded-2xl border border-border/70 p-4"
-                    key={String(doc.id)}
-                  >
-                    <p className="font-semibold text-foreground">
-                      {String(doc.kind)}
-                    </p>
+                  <article className="rounded-2xl border border-border/70 p-4" key={String(doc.id)}>
+                    <p className="font-semibold text-foreground">{String(doc.kind)}</p>
                     <a
                       className="text-sm text-sky-700 underline"
                       href={String(doc.url)}
@@ -310,29 +281,21 @@ function AdminSessionInspectionPage() {
                       {String(doc.url)}
                     </a>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Páginas:{" "}
-                      {doc.pageCount != null ? String(doc.pageCount) : "—"} ·
-                      Extraído:{" "}
-                      {doc.extractedAt
-                        ? formatDate(String(doc.extractedAt))
-                        : "—"}
+                      Páginas: {doc.pageCount != null ? String(doc.pageCount) : "—"} · Extraído:{" "}
+                      {doc.extractedAt ? formatDate(String(doc.extractedAt)) : "—"}
                     </p>
                   </article>
                 ))}
               </div>
 
-              <h3 className="mt-6 font-heading text-xl text-foreground">
-                Snapshots recientes
-              </h3>
+              <h3 className="mt-6 font-heading text-xl text-foreground">Snapshots recientes</h3>
               <pre className="mt-3 max-h-64 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">
                 {JSON.stringify(payload.snapshots.slice(0, 8), null, 2)}
               </pre>
             </section>
 
             <section className="rounded-[2rem] border border-border bg-card p-6">
-              <h2 className="font-heading text-2xl text-foreground">
-                Parse runs
-              </h2>
+              <h2 className="font-heading text-2xl text-foreground">Parse runs</h2>
               <pre className="mt-4 max-h-64 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">
                 {JSON.stringify(payload.parseRuns.slice(0, 8), null, 2)}
               </pre>
@@ -368,10 +331,7 @@ function AdminSessionInspectionPage() {
                   </thead>
                   <tbody>
                     {payload.attendancePreview.map((row) => (
-                      <tr
-                        className="border-t border-border/70"
-                        key={String(row.id)}
-                      >
+                      <tr className="border-t border-border/70" key={String(row.id)}>
                         <td className="px-3 py-2 text-xs text-muted-foreground">
                           {String(row.rowNumber ?? "")}
                         </td>
@@ -391,9 +351,7 @@ function AdminSessionInspectionPage() {
             </section>
 
             <section className="rounded-[2rem] border border-border bg-card p-6">
-              <h2 className="font-heading text-2xl text-foreground">
-                Anomalías de ingestión
-              </h2>
+              <h2 className="font-heading text-2xl text-foreground">Anomalías de ingestión</h2>
               <div className="mt-4 space-y-3">
                 {payload.anomalies.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
@@ -408,9 +366,7 @@ function AdminSessionInspectionPage() {
                       <p className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
                         {String(anomaly.kind)}
                       </p>
-                      <p className="mt-2 text-sm text-foreground">
-                        {String(anomaly.message)}
-                      </p>
+                      <p className="mt-2 text-sm text-foreground">{String(anomaly.message)}</p>
                       {anomaly.snippet ? (
                         <p className="mt-2 text-xs text-muted-foreground">
                           {String(anomaly.snippet)}
@@ -437,5 +393,5 @@ function AdminSessionInspectionPage() {
         )}
       </div>
     </main>
-  )
+  );
 }

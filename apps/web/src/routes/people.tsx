@@ -1,64 +1,58 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
-import {
-  FadeIn,
-  StaggerItem,
-  StaggerList,
-  SwappableContent,
-} from "../components/reveal"
-import { api, type PeopleDirectoryResponse } from "../lib/api"
+import { FadeIn, StaggerItem, StaggerList, SwappableContent } from "../components/reveal";
+import { api } from "../lib/api";
+import type { PeopleDirectoryResponse } from "../lib/api";
 
 export const Route = createFileRoute("/people")({
   component: PeoplePage,
-})
+});
 
 function PeoplePage() {
-  const [search, setSearch] = useState("")
-  const [page, setPage] = useState(1)
-  const [directory, setDirectory] = useState<PeopleDirectoryResponse | null>(
-    null
-  )
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [directory, setDirectory] = useState<PeopleDirectoryResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
 
     async function loadPeople() {
-      setIsLoading(true)
-      setError(null)
+      setIsLoading(true);
+      setError(null);
 
       try {
         const nextDirectory = await api.listPeople({
-          q: search || undefined,
           page,
           pageSize: 24,
-        })
+          q: search || undefined,
+        });
 
-        if (cancelled) return
-        setDirectory(nextDirectory)
+        if (cancelled) {
+          return;
+        }
+        setDirectory(nextDirectory);
       } catch (caughtError) {
         if (!cancelled) {
           setError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "No se pudo cargar el directorio."
-          )
+            caughtError instanceof Error ? caughtError.message : "No se pudo cargar el directorio.",
+          );
         }
       } finally {
         if (!cancelled) {
-          setIsLoading(false)
+          setIsLoading(false);
         }
       }
     }
 
-    void loadPeople()
+    void loadPeople();
 
     return () => {
-      cancelled = true
-    }
-  }, [page, search])
+      cancelled = true;
+    };
+  }, [page, search]);
 
   return (
     <main className="min-h-svh bg-background">
@@ -72,9 +66,8 @@ function PeoplePage() {
                   Diputadas y diputados
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-                  Fichas legislativas para cruzar nombres, grupo parlamentario,
-                  retrato y contexto biografico con los datos publicos del
-                  tablero.
+                  Fichas legislativas para cruzar nombres, grupo parlamentario, retrato y contexto
+                  biografico con los datos publicos del tablero.
                 </p>
               </div>
 
@@ -84,8 +77,8 @@ function PeoplePage() {
                   <input
                     className="h-12 w-full rounded-2xl border border-border bg-background/80 px-4 text-sm outline-none"
                     onChange={(event) => {
-                      setPage(1)
-                      setSearch(event.target.value)
+                      setPage(1);
+                      setSearch(event.target.value);
                     }}
                     placeholder="Buscar por nombre"
                     value={search}
@@ -116,9 +109,7 @@ function PeoplePage() {
           </section>
         ) : null}
 
-        <SwappableContent
-          contentKey={`${search}:${page}:${directory?.total ?? "loading"}`}
-        >
+        <SwappableContent contentKey={`${search}:${page}:${directory?.total ?? "loading"}`}>
           {isLoading || !directory ? (
             <section className="surface-soft rounded-[2rem] border border-border/75 p-6 text-sm text-muted-foreground">
               Cargando directorio…
@@ -147,15 +138,12 @@ function PeoplePage() {
                         )}
 
                         <div className="mt-4 flex-1">
-                          <p className="eyebrow">
-                            {person.groupCode ?? "Sin grupo"}
-                          </p>
+                          <p className="eyebrow">{person.groupCode ?? "Sin grupo"}</p>
                           <h2 className="mt-3 text-xl font-semibold text-foreground">
                             {person.fullName}
                           </h2>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {person.groupName ?? "Sin grupo"} ·{" "}
-                            {person.legislature}
+                            {person.groupName ?? "Sin grupo"} · {person.legislature}
                           </p>
                           <p className="mt-4 line-clamp-5 text-sm leading-6 text-foreground/80">
                             {person.bio ?? "Perfil en construcción."}
@@ -179,18 +167,14 @@ function PeoplePage() {
                   <button
                     className="rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40"
                     disabled={directory.page <= 1}
-                    onClick={() =>
-                      setPage((current) => Math.max(1, current - 1))
-                    }
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
                     type="button"
                   >
                     Anterior
                   </button>
                   <button
                     className="rounded-full border border-border bg-background/70 px-3 py-1.5 disabled:opacity-40"
-                    disabled={
-                      directory.page * directory.pageSize >= directory.total
-                    }
+                    disabled={directory.page * directory.pageSize >= directory.total}
                     onClick={() => setPage((current) => current + 1)}
                     type="button"
                   >
@@ -203,5 +187,5 @@ function PeoplePage() {
         </SwappableContent>
       </div>
     </main>
-  )
+  );
 }

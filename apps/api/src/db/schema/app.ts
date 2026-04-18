@@ -8,7 +8,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "drizzle-orm/pg-core"
+} from "drizzle-orm/pg-core";
 
 export const sessionTypeEnum = pgEnum("session_type", [
   "ordinary",
@@ -16,14 +16,14 @@ export const sessionTypeEnum = pgEnum("session_type", [
   "special",
   "vote",
   "unknown",
-])
+]);
 
 export const documentKindEnum = pgEnum("document_kind", [
   "attendance",
   "absence",
   "attendance_summary",
   "absence_summary",
-])
+]);
 
 export const attendanceStatusEnum = pgEnum("attendance_status", [
   "attendance",
@@ -34,26 +34,23 @@ export const attendanceStatusEnum = pgEnum("attendance_status", [
   "board_leave",
   "not_present_in_votes",
   "unknown",
-])
+]);
 
 export const parseRunStatusEnum = pgEnum("parse_run_status", [
   "pending",
   "running",
   "completed",
   "failed",
-])
+]);
 
 export const snapshotStatusEnum = pgEnum("snapshot_status", [
   "fetched",
   "unchanged",
   "changed",
   "failed",
-])
+]);
 
-export const jobTypeEnum = pgEnum("job_type", [
-  "process_period",
-  "process_all_periods",
-])
+export const jobTypeEnum = pgEnum("job_type", ["process_period", "process_all_periods"]);
 
 export const jobStatusEnum = pgEnum("job_status", [
   "pending",
@@ -61,435 +58,364 @@ export const jobStatusEnum = pgEnum("job_status", [
   "completed",
   "failed",
   "cancelled",
-])
+]);
 
 export const crawlRuns = pgTable("crawl_runs", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  startedAt: timestamp("started_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
-  status: text("status").notNull().default("running"),
+  id: uuid("id").defaultRandom().primaryKey(),
   sourceUrl: text("source_url").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  status: text("status").notNull().default("running"),
   summary: jsonb("summary"),
-})
+});
 
 export const jobQueue = pgTable(
   "job_queue",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    type: jobTypeEnum("type").notNull(),
-    status: jobStatusEnum("status").notNull().default("pending"),
-    priority: integer("priority").notNull().default(100),
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdByEmail: text("created_by_email"),
     dedupeKey: text("dedupe_key"),
+    errorMessage: text("error_message"),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    id: uuid("id").defaultRandom().primaryKey(),
+    maxAttempts: integer("max_attempts").notNull().default(3),
     payload: jsonb("payload").notNull(),
+    priority: integer("priority").notNull().default(100),
     progress: jsonb("progress"),
     result: jsonb("result"),
-    errorMessage: text("error_message"),
-    attempts: integer("attempts").notNull().default(0),
-    maxAttempts: integer("max_attempts").notNull().default(3),
-    createdByEmail: text("created_by_email"),
     runAt: timestamp("run_at", { withTimezone: true }).notNull().defaultNow(),
     startedAt: timestamp("started_at", { withTimezone: true }),
-    finishedAt: timestamp("finished_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    status: jobStatusEnum("status").notNull().default("pending"),
+    type: jobTypeEnum("type").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    statusRunAtIdx: index("job_queue_status_run_at_idx").on(
-      table.status,
-      table.runAt
-    ),
-    dedupeKeyUnique: uniqueIndex("job_queue_dedupe_key_uidx").on(
-      table.dedupeKey
-    ),
-  })
-)
+    dedupeKeyUnique: uniqueIndex("job_queue_dedupe_key_uidx").on(table.dedupeKey),
+    statusRunAtIdx: index("job_queue_status_run_at_idx").on(table.status, table.runAt),
+  }),
+);
 
 export const legislativePeriods = pgTable(
   "legislative_periods",
   {
+    discoveredAt: timestamp("discovered_at", { withTimezone: true }).notNull().defaultNow(),
     id: uuid("id").defaultRandom().primaryKey(),
     label: text("label").notNull(),
     legislature: text("legislature").notNull(),
-    yearSpan: text("year_span").notNull(),
     periodPageUrl: text("period_page_url").notNull(),
-    discoveredAt: timestamp("discovered_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    yearSpan: text("year_span").notNull(),
   },
   (table) => ({
-    periodPageUrlUnique: uniqueIndex(
-      "legislative_periods_period_page_url_uidx"
-    ).on(table.periodPageUrl),
-  })
-)
+    periodPageUrlUnique: uniqueIndex("legislative_periods_period_page_url_uidx").on(
+      table.periodPageUrl,
+    ),
+  }),
+);
 
 export const sessions = pgTable(
   "sessions",
   {
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    gacetaNumber: integer("gaceta_number"),
     id: uuid("id").defaultRandom().primaryKey(),
+    metadata: jsonb("metadata"),
     periodId: uuid("period_id").references(() => legislativePeriods.id, {
       onDelete: "set null",
     }),
-    gacetaNumber: integer("gaceta_number"),
     sessionDate: timestamp("session_date", { withTimezone: true }),
-    title: text("title").notNull(),
-    sessionType: sessionTypeEnum("session_type").notNull().default("unknown"),
     sessionPageUrl: text("session_page_url").notNull(),
+    sessionType: sessionTypeEnum("session_type").notNull().default("unknown"),
     sourceSlug: text("source_slug").notNull(),
-    metadata: jsonb("metadata"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    sessionPageUrlUnique: uniqueIndex("sessions_session_page_url_uidx").on(
-      table.sessionPageUrl
-    ),
     sessionDateIdx: index("sessions_session_date_idx").on(table.sessionDate),
-  })
-)
+    sessionPageUrlUnique: uniqueIndex("sessions_session_page_url_uidx").on(table.sessionPageUrl),
+  }),
+);
 
 export const sessionDocuments = pgTable(
   "session_documents",
   {
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    extractedAt: timestamp("extracted_at", { withTimezone: true }),
+    extractionMeta: jsonb("extraction_meta"),
     id: uuid("id").defaultRandom().primaryKey(),
+    kind: documentKindEnum("kind").notNull(),
+    lastChangedAt: timestamp("last_changed_at", { withTimezone: true }),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    latestContentHash: text("latest_content_hash"),
+    pageCount: integer("page_count"),
+    rawText: text("raw_text"),
     sessionId: uuid("session_id")
       .notNull()
       .references(() => sessions.id, {
         onDelete: "cascade",
       }),
-    kind: documentKindEnum("kind").notNull(),
     url: text("url").notNull(),
-    pageCount: integer("page_count"),
-    rawText: text("raw_text"),
-    extractedAt: timestamp("extracted_at", { withTimezone: true }),
-    extractionMeta: jsonb("extraction_meta"),
-    latestContentHash: text("latest_content_hash"),
-    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
-    lastChangedAt: timestamp("last_changed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
   },
   (table) => ({
     sessionKindUnique: uniqueIndex("session_documents_session_kind_uidx").on(
       table.sessionId,
-      table.kind
+      table.kind,
     ),
-  })
-)
+  }),
+);
 
 export const documentSnapshots = pgTable(
   "document_snapshots",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    byteSize: integer("byte_size"),
+    changedAt: timestamp("changed_at", { withTimezone: true }),
+    contentHash: text("content_hash"),
+    contentType: text("content_type"),
     documentId: uuid("document_id")
       .notNull()
       .references(() => sessionDocuments.id, {
         onDelete: "cascade",
       }),
+    etag: text("etag"),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+    httpStatus: integer("http_status"),
+    id: uuid("id").defaultRandom().primaryKey(),
+    lastModified: text("last_modified"),
+    metadata: jsonb("metadata"),
     previousSnapshotId: uuid("previous_snapshot_id"),
     sourceUrl: text("source_url").notNull(),
     status: snapshotStatusEnum("status").notNull().default("fetched"),
-    contentHash: text("content_hash"),
-    byteSize: integer("byte_size"),
-    etag: text("etag"),
-    lastModified: text("last_modified"),
-    contentType: text("content_type"),
-    httpStatus: integer("http_status"),
-    fetchedAt: timestamp("fetched_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    changedAt: timestamp("changed_at", { withTimezone: true }),
-    metadata: jsonb("metadata"),
   },
   (table) => ({
-    documentFetchedAtIdx: index(
-      "document_snapshots_document_fetched_at_idx"
-    ).on(table.documentId, table.fetchedAt),
-  })
-)
+    documentFetchedAtIdx: index("document_snapshots_document_fetched_at_idx").on(
+      table.documentId,
+      table.fetchedAt,
+    ),
+  }),
+);
 
 export const parliamentaryGroups = pgTable(
   "parliamentary_groups",
   {
+    code: text("code").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     id: uuid("id").defaultRandom().primaryKey(),
     legislature: text("legislature").notNull(),
-    code: text("code").notNull(),
     name: text("name").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
   },
   (table) => ({
-    legislatureCodeUnique: uniqueIndex(
-      "parliamentary_groups_legislature_code_uidx"
-    ).on(table.legislature, table.code),
-  })
-)
+    legislatureCodeUnique: uniqueIndex("parliamentary_groups_legislature_code_uidx").on(
+      table.legislature,
+      table.code,
+    ),
+  }),
+);
 
 export const people = pgTable(
   "people",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     fullName: text("full_name").notNull(),
-    normalizedName: text("normalized_name").notNull(),
+    id: uuid("id").defaultRandom().primaryKey(),
     metadata: jsonb("metadata"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    normalizedName: text("normalized_name").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    normalizedNameUnique: uniqueIndex("people_normalized_name_uidx").on(
-      table.normalizedName
-    ),
-  })
-)
+    normalizedNameUnique: uniqueIndex("people_normalized_name_uidx").on(table.normalizedName),
+  }),
+);
 
 export const legislators = pgTable(
   "legislators",
   {
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    currentGroupId: uuid("current_group_id").references(() => parliamentaryGroups.id, {
+      onDelete: "set null",
+    }),
+    displayOrderHint: integer("display_order_hint"),
+    fullName: text("full_name").notNull(),
     id: uuid("id").defaultRandom().primaryKey(),
+    legislature: text("legislature").notNull(),
+    metadata: jsonb("metadata"),
+    normalizedName: text("normalized_name").notNull(),
     personId: uuid("person_id")
       .notNull()
       .references(() => people.id, {
         onDelete: "cascade",
       }),
-    legislature: text("legislature").notNull(),
-    fullName: text("full_name").notNull(),
-    normalizedName: text("normalized_name").notNull(),
-    displayOrderHint: integer("display_order_hint"),
-    currentGroupId: uuid("current_group_id").references(
-      () => parliamentaryGroups.id,
-      {
-        onDelete: "set null",
-      }
-    ),
-    metadata: jsonb("metadata"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
+    legislatureNormalizedNameUnique: uniqueIndex("legislators_legislature_normalized_name_uidx").on(
+      table.legislature,
+      table.normalizedName,
+    ),
     personIdx: index("legislators_person_id_idx").on(table.personId),
-    legislatureNormalizedNameUnique: uniqueIndex(
-      "legislators_legislature_normalized_name_uidx"
-    ).on(table.legislature, table.normalizedName),
-  })
-)
+  }),
+);
 
 export const documentParseRuns = pgTable(
   "document_parse_runs",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
     documentId: uuid("document_id")
       .notNull()
       .references(() => sessionDocuments.id, {
         onDelete: "cascade",
       }),
-    parserVersion: text("parser_version").notNull(),
-    status: parseRunStatusEnum("status").notNull().default("pending"),
-    startedAt: timestamp("started_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    finishedAt: timestamp("finished_at", { withTimezone: true }),
     errorMessage: text("error_message"),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    id: uuid("id").defaultRandom().primaryKey(),
     metrics: jsonb("metrics"),
+    parserVersion: text("parser_version").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    status: parseRunStatusEnum("status").notNull().default("pending"),
   },
   (table) => ({
-    documentStartedAtIdx: index(
-      "document_parse_runs_document_started_at_idx"
-    ).on(table.documentId, table.startedAt),
-  })
-)
+    documentStartedAtIdx: index("document_parse_runs_document_started_at_idx").on(
+      table.documentId,
+      table.startedAt,
+    ),
+  }),
+);
 
 export const sessionGroupSummaries = pgTable(
   "session_group_summaries",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    sessionId: uuid("session_id")
-      .notNull()
-      .references(() => sessions.id, {
-        onDelete: "cascade",
-      }),
+    absenceCount: integer("absence_count").notNull().default(0),
+    attendanceCount: integer("attendance_count").notNull().default(0),
+    boardLeaveCount: integer("board_leave_count").notNull().default(0),
+    cedulaCount: integer("cedula_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     groupId: uuid("group_id")
       .notNull()
       .references(() => parliamentaryGroups.id, {
         onDelete: "cascade",
       }),
-    sourceDocumentId: uuid("source_document_id").references(
-      () => sessionDocuments.id,
-      {
-        onDelete: "set null",
-      }
-    ),
-    attendanceCount: integer("attendance_count").notNull().default(0),
-    cedulaCount: integer("cedula_count").notNull().default(0),
-    justifiedAbsenceCount: integer("justified_absence_count")
-      .notNull()
-      .default(0),
-    absenceCount: integer("absence_count").notNull().default(0),
-    officialCommissionCount: integer("official_commission_count")
-      .notNull()
-      .default(0),
-    boardLeaveCount: integer("board_leave_count").notNull().default(0),
-    notPresentInVotesCount: integer("not_present_in_votes_count")
-      .notNull()
-      .default(0),
-    totalCount: integer("total_count").notNull().default(0),
+    id: uuid("id").defaultRandom().primaryKey(),
+    justifiedAbsenceCount: integer("justified_absence_count").notNull().default(0),
+    notPresentInVotesCount: integer("not_present_in_votes_count").notNull().default(0),
+    officialCommissionCount: integer("official_commission_count").notNull().default(0),
     rawLabel: text("raw_label"),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    sessionId: uuid("session_id")
       .notNull()
-      .defaultNow(),
+      .references(() => sessions.id, {
+        onDelete: "cascade",
+      }),
+    sourceDocumentId: uuid("source_document_id").references(() => sessionDocuments.id, {
+      onDelete: "set null",
+    }),
+    totalCount: integer("total_count").notNull().default(0),
   },
   (table) => ({
-    sessionGroupUnique: uniqueIndex(
-      "session_group_summaries_session_group_uidx"
-    ).on(table.sessionId, table.groupId),
-  })
-)
+    sessionGroupUnique: uniqueIndex("session_group_summaries_session_group_uidx").on(
+      table.sessionId,
+      table.groupId,
+    ),
+  }),
+);
 
 export const sessionReconciliations = pgTable(
   "session_reconciliations",
   {
+    absenceDocumentId: uuid("absence_document_id").references(() => sessionDocuments.id, {
+      onDelete: "set null",
+    }),
+    absencePdfCount: integer("absence_pdf_count").notNull().default(0),
+    absenceSnapshotHash: text("absence_snapshot_hash"),
+    attendanceAbsenceCount: integer("attendance_absence_count").notNull().default(0),
+    attendanceDocumentId: uuid("attendance_document_id").references(() => sessionDocuments.id, {
+      onDelete: "set null",
+    }),
+    attendanceSnapshotHash: text("attendance_snapshot_hash"),
+    details: jsonb("details"),
+    extraInAttendanceCount: integer("extra_in_attendance_count").notNull().default(0),
+    groupDiffCount: integer("group_diff_count").notNull().default(0),
     id: uuid("id").defaultRandom().primaryKey(),
+    matches: text("matches").notNull().default("unknown"),
+    missingFromAttendanceCount: integer("missing_from_attendance_count").notNull().default(0),
+    reconciledAt: timestamp("reconciled_at", { withTimezone: true }).notNull().defaultNow(),
     sessionId: uuid("session_id")
       .notNull()
       .references(() => sessions.id, {
         onDelete: "cascade",
       }),
-    attendanceDocumentId: uuid("attendance_document_id").references(
-      () => sessionDocuments.id,
-      {
-        onDelete: "set null",
-      }
-    ),
-    absenceDocumentId: uuid("absence_document_id").references(
-      () => sessionDocuments.id,
-      {
-        onDelete: "set null",
-      }
-    ),
-    attendanceSnapshotHash: text("attendance_snapshot_hash"),
-    absenceSnapshotHash: text("absence_snapshot_hash"),
-    matches: text("matches").notNull().default("unknown"),
-    attendanceAbsenceCount: integer("attendance_absence_count")
-      .notNull()
-      .default(0),
-    absencePdfCount: integer("absence_pdf_count").notNull().default(0),
-    missingFromAttendanceCount: integer("missing_from_attendance_count")
-      .notNull()
-      .default(0),
-    extraInAttendanceCount: integer("extra_in_attendance_count")
-      .notNull()
-      .default(0),
-    groupDiffCount: integer("group_diff_count").notNull().default(0),
-    details: jsonb("details"),
-    reconciledAt: timestamp("reconciled_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
   },
   (table) => ({
-    sessionUnique: uniqueIndex("session_reconciliations_session_uidx").on(
-      table.sessionId
-    ),
-  })
-)
+    sessionUnique: uniqueIndex("session_reconciliations_session_uidx").on(table.sessionId),
+  }),
+);
 
 export const ingestAnomalies = pgTable(
   "ingest_anomalies",
   {
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    documentId: uuid("document_id").references(() => sessionDocuments.id, {
+      onDelete: "set null",
+    }),
     id: uuid("id").defaultRandom().primaryKey(),
+    kind: text("kind").notNull(),
+    message: text("message").notNull(),
+    metadata: jsonb("metadata"),
+    parseRunId: uuid("parse_run_id").references(() => documentParseRuns.id, {
+      onDelete: "set null",
+    }),
     sessionId: uuid("session_id")
       .notNull()
       .references(() => sessions.id, {
         onDelete: "cascade",
       }),
-    documentId: uuid("document_id").references(() => sessionDocuments.id, {
-      onDelete: "set null",
-    }),
-    parseRunId: uuid("parse_run_id").references(() => documentParseRuns.id, {
-      onDelete: "set null",
-    }),
-    kind: text("kind").notNull(),
-    message: text("message").notNull(),
     snippet: text("snippet"),
     sourceUrl: text("source_url"),
-    metadata: jsonb("metadata"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
   },
   (table) => ({
+    kindIdx: index("ingest_anomalies_kind_idx").on(table.kind),
     sessionCreatedIdx: index("ingest_anomalies_session_created_idx").on(
       table.sessionId,
-      table.createdAt
+      table.createdAt,
     ),
-    kindIdx: index("ingest_anomalies_kind_idx").on(table.kind),
-  })
-)
+  }),
+);
 
 export const attendanceRecords = pgTable(
   "attendance_records",
   {
+    confidence: integer("confidence"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    groupId: uuid("group_id").references(() => parliamentaryGroups.id, {
+      onDelete: "set null",
+    }),
     id: uuid("id").defaultRandom().primaryKey(),
+    legislatorId: uuid("legislator_id").references(() => legislators.id, {
+      onDelete: "set null",
+    }),
+    metadata: jsonb("metadata"),
+    normalizedName: text("normalized_name").notNull(),
+    pageNumber: integer("page_number"),
+    rawName: text("raw_name").notNull(),
+    rawStatus: text("raw_status"),
+    rowNumber: integer("row_number"),
     sessionId: uuid("session_id")
       .notNull()
       .references(() => sessions.id, {
         onDelete: "cascade",
       }),
-    legislatorId: uuid("legislator_id").references(() => legislators.id, {
+    sourceDocumentId: uuid("source_document_id").references(() => sessionDocuments.id, {
       onDelete: "set null",
     }),
-    groupId: uuid("group_id").references(() => parliamentaryGroups.id, {
+    sourceParseRunId: uuid("source_parse_run_id").references(() => documentParseRuns.id, {
       onDelete: "set null",
     }),
-    sourceDocumentId: uuid("source_document_id").references(
-      () => sessionDocuments.id,
-      {
-        onDelete: "set null",
-      }
-    ),
-    sourceParseRunId: uuid("source_parse_run_id").references(
-      () => documentParseRuns.id,
-      {
-        onDelete: "set null",
-      }
-    ),
-    rowNumber: integer("row_number"),
-    pageNumber: integer("page_number"),
-    rawName: text("raw_name").notNull(),
-    normalizedName: text("normalized_name").notNull(),
     status: attendanceStatusEnum("status").notNull().default("unknown"),
-    rawStatus: text("raw_status"),
-    confidence: integer("confidence"),
-    metadata: jsonb("metadata"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
   },
   (table) => ({
-    sessionNormalizedNameUnique: uniqueIndex(
-      "attendance_records_session_normalized_name_uidx"
-    ).on(table.sessionId, table.normalizedName),
+    sessionNormalizedNameUnique: uniqueIndex("attendance_records_session_normalized_name_uidx").on(
+      table.sessionId,
+      table.normalizedName,
+    ),
     sessionStatusIdx: index("attendance_records_session_status_idx").on(
       table.sessionId,
-      table.status
+      table.status,
     ),
-  })
-)
+  }),
+);

@@ -6,20 +6,20 @@ const transport =
   process.env.NODE_ENV === "production"
     ? undefined
     : pino.transport({
-        target: "pino-pretty",
         options: {
           colorize: true,
           ignore: "pid,hostname",
           translateTime: "SYS:standard",
         },
+        target: "pino-pretty",
       });
 
 export const logger = pino(
   {
-    level: env.LOG_LEVEL,
     base: {
       service: "gaceta-attendance-api",
     },
+    level: env.LOG_LEVEL,
     timestamp: pino.stdTimeFunctions.isoTime,
   },
   transport,
@@ -28,7 +28,9 @@ export const logger = pino(
 let consoleBridged = false;
 
 export function installConsoleBridge() {
-  if (consoleBridged) return;
+  if (consoleBridged) {
+    return;
+  }
   consoleBridged = true;
 
   console.warn = (...args: unknown[]) => {
@@ -36,9 +38,7 @@ export function installConsoleBridge() {
       {
         source: "console.warn",
       },
-      args
-        .map((value) => (typeof value === "string" ? value : JSON.stringify(value)))
-        .join(" "),
+      args.map((value) => (typeof value === "string" ? value : JSON.stringify(value))).join(" "),
     );
   };
 
@@ -47,9 +47,7 @@ export function installConsoleBridge() {
       {
         source: "console.error",
       },
-      args
-        .map((value) => (typeof value === "string" ? value : JSON.stringify(value)))
-        .join(" "),
+      args.map((value) => (typeof value === "string" ? value : JSON.stringify(value))).join(" "),
     );
   };
 }
